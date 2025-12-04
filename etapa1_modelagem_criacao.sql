@@ -41,9 +41,6 @@ CREATE TABLE tb_clientes (
     CONSTRAINT chk_estado_uf CHECK (estado ~ '^[A-Z]{2}$')
 );
 
-COMMENT ON TABLE tb_clientes IS 'Cadastro de clientes da agência de turismo';
-COMMENT ON COLUMN tb_clientes.cpf IS 'CPF do cliente (apenas números, sem formatação)';
-
 -- Tabela: tb_funcionarios
 -- Descrição: Armazena dados dos funcionários da agência
 -- Regras: CPF único, Email corporativo único, Salário positivo, Data admissão válida
@@ -63,9 +60,6 @@ CREATE TABLE tb_funcionarios (
     CONSTRAINT chk_func_status CHECK (status IN ('ATIVO', 'INATIVO', 'FERIAS', 'AFASTADO'))
 );
 
-COMMENT ON TABLE tb_funcionarios IS 'Cadastro de funcionários da agência';
-COMMENT ON COLUMN tb_funcionarios.cargo IS 'Cargo: Vendedor, Gerente, Atendente, etc.';
-
 -- Tabela: tb_destinos
 -- Descrição: Catálogo de destinos turísticos oferecidos
 -- Regras: Informações geográficas completas, Categoria de turismo, Status ativo/inativo
@@ -84,8 +78,6 @@ CREATE TABLE tb_destinos (
     CONSTRAINT chk_dest_categoria CHECK (categoria IN ('PRAIA', 'MONTANHA', 'URBANO', 'AVENTURA', 'CULTURAL', 'ECOLOGICO', 'RELIGIOSO')),
     CONSTRAINT chk_dest_status CHECK (status IN ('ATIVO', 'INATIVO'))
 );
-
-COMMENT ON TABLE tb_destinos IS 'Catálogo de destinos turísticos disponíveis';
 
 -- Tabela: tb_hoteis
 -- Descrição: Cadastro de hotéis parceiros em cada destino
@@ -110,9 +102,6 @@ CREATE TABLE tb_hoteis (
     CONSTRAINT chk_hotel_status CHECK (status IN ('ATIVO', 'INATIVO'))
 );
 
-COMMENT ON TABLE tb_hoteis IS 'Hotéis parceiros disponíveis em cada destino';
-COMMENT ON COLUMN tb_hoteis.comodidades IS 'Wi-Fi, Piscina, Academia, etc.';
-
 -- Tabela: tb_transportes
 -- Descrição: Meios de transporte disponíveis (aéreo, terrestre, marítimo)
 -- Regras: Preço positivo, Capacidade maior que zero
@@ -130,8 +119,6 @@ CREATE TABLE tb_transportes (
     CONSTRAINT chk_transp_preco CHECK (preco_base > 0),
     CONSTRAINT chk_transp_status CHECK (status IN ('ATIVO', 'INATIVO', 'MANUTENCAO'))
 );
-
-COMMENT ON TABLE tb_transportes IS 'Meios de transporte disponíveis para os pacotes';
 
 -- Tabela: tb_pacotes_turisticos
 -- Descrição: Pacotes turísticos montados pela agência
@@ -164,9 +151,6 @@ CREATE TABLE tb_pacotes_turisticos (
     CONSTRAINT chk_pacote_status CHECK (status IN ('DISPONIVEL', 'ESGOTADO', 'CANCELADO', 'FINALIZADO'))
 );
 
-COMMENT ON TABLE tb_pacotes_turisticos IS 'Pacotes turísticos completos oferecidos pela agência';
-COMMENT ON COLUMN tb_pacotes_turisticos.incluso IS 'Itens inclusos no pacote';
-
 -- Tabela: tb_reservas
 -- Descrição: Reservas/vendas realizadas pela agência
 -- Relacionamentos: N:1 com clientes, pacotes e funcionários (vendedor)
@@ -193,9 +177,6 @@ CREATE TABLE tb_reservas (
     CONSTRAINT chk_reserva_status CHECK (status_reserva IN ('CONFIRMADA', 'PENDENTE', 'CANCELADA', 'FINALIZADA'))
 );
 
-COMMENT ON TABLE tb_reservas IS 'Reservas e vendas de pacotes turísticos';
-COMMENT ON COLUMN tb_reservas.id_funcionario IS 'Funcionário (vendedor) responsável pela venda';
-
 -- Tabela: tb_pagamentos
 -- Descrição: Controle de pagamentos das reservas
 -- Relacionamento: N:1 com reservas (uma reserva pode ter vários pagamentos)
@@ -218,8 +199,6 @@ CREATE TABLE tb_pagamentos (
     CONSTRAINT chk_pagto_status CHECK (status_pagamento IN ('PENDENTE', 'PAGO', 'CANCELADO', 'ESTORNADO'))
 );
 
-COMMENT ON TABLE tb_pagamentos IS 'Controle de pagamentos e parcelas das reservas';
-
 -- Tabela: tb_avaliacoes
 -- Descrição: Avaliações dos clientes sobre os pacotes realizados
 -- Relacionamentos: N:1 com clientes e pacotes
@@ -237,8 +216,6 @@ CREATE TABLE tb_avaliacoes (
     CONSTRAINT uk_avaliacao_cliente_pacote UNIQUE (id_cliente, id_pacote)
 );
 
-COMMENT ON TABLE tb_avaliacoes IS 'Avaliações e feedbacks dos clientes sobre os pacotes';
-
 -- Tabela: tb_auditoria
 -- Descrição: Tabela de auditoria para registrar operações críticas (será usada pelos triggers)
 -- Regras: Registro automático via triggers, Não permite exclusão de registros
@@ -254,9 +231,6 @@ CREATE TABLE tb_auditoria (
     observacao TEXT,
     CONSTRAINT chk_audit_operacao CHECK (operacao IN ('INSERT', 'UPDATE', 'DELETE'))
 );
-
-COMMENT ON TABLE tb_auditoria IS 'Tabela de auditoria para rastreamento de operações críticas';
-COMMENT ON COLUMN tb_auditoria.dados_antigos IS 'Dados antes da operação (formato JSON)';
 
 -- ============================================================================
 -- 3. CRIAÇÃO DE ÍNDICES BÁSICOS

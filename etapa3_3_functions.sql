@@ -87,11 +87,6 @@ EXCEPTION
 END;
 $$;
 
-COMMENT ON FUNCTION fn_criar_reserva_completa IS
-'Cria reserva com validações completas: cliente, funcionário, pacote, vagas, desconto.
-Centraliza regras de negócio e calcula valor automaticamente.
-Parâmetros OUT: id_reserva, valor_total, mensagem, sucesso (TRUE/FALSE).';
-
 -- ============================================================================
 -- FUNCTION 2: RELATÓRIO DE FATURAMENTO POR PERÍODO
 -- Objetivo: Gerar relatório financeiro consolidado
@@ -130,10 +125,6 @@ BEGIN
     WHERE r.data_reserva::DATE BETWEEN p_data_inicio AND p_data_fim AND r.status_reserva IN ('CONFIRMADA', 'FINALIZADA');
 END;
 $$;
-
-COMMENT ON FUNCTION fn_relatorio_faturamento IS
-'Relatório financeiro consolidado: reservas, passageiros, receitas, descontos, pagamentos.
-Uso: SELECT * FROM fn_relatorio_faturamento(''2024-01-01'', ''2024-12-31'');';
 
 -- ============================================================================
 -- FUNCTION 3: CALCULAR COMISSÃO DE VENDEDOR
@@ -189,11 +180,6 @@ BEGIN
     o_valor_comissao := ROUND(o_valor_vendido * o_percentual_comissao / 100, 2);
 END;
 $$;
-
-COMMENT ON FUNCTION fn_calcular_comissao_vendedor IS
-'Calcula comissão de vendedor com sistema de bônus progressivo.
-Regras: 5% base | +2% se vendeu ≥ R$ 50k | +3% se vendeu ≥ R$ 100k.
-Uso: SELECT * FROM fn_calcular_comissao_vendedor(4, 11, 2024);';
 
 -- ============================================================================
 -- TESTES DAS FUNCTIONS

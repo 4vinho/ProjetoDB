@@ -206,27 +206,20 @@ ORDER BY mes_ano DESC;
 
 -- CONSULTA 4: Clientes VIP (Mais Gastaram)
 -- Objetivo: Identificar clientes de maior valor
--- Técnicas: Window Functions (ROW_NUMBER)
-WITH ranking_clientes AS (
-    SELECT
-        c.nome_completo, c.email, c.cidade, c.estado,
-        COUNT(r.id_reserva) AS total_compras,
-        SUM(r.valor_total) AS valor_total_gasto,
-        ROUND(AVG(r.valor_total), 2) AS ticket_medio,
-        MAX(r.data_reserva) AS ultima_compra,
-        ROW_NUMBER() OVER (ORDER BY SUM(r.valor_total) DESC) AS ranking
-    FROM tb_clientes c
-    INNER JOIN tb_reservas r ON c.id_cliente = r.id_cliente
-    WHERE r.status_reserva IN ('CONFIRMADA', 'FINALIZADA')
-    GROUP BY c.id_cliente, c.nome_completo, c.email, c.cidade, c.estado
-)
-SELECT ranking AS posicao, nome_completo, email,
-    cidade || ' - ' || estado AS localizacao,
-    total_compras,
-    TO_CHAR(valor_total_gasto, 'L999G999G999D99') AS valor_gasto
-FROM ranking_clientes
-WHERE ranking <= 10
-ORDER BY ranking;
+-- Técnicas: Subconsultas e ordenação
+SELECT
+    c.nome_completo, c.email,
+    c.cidade || ' - ' || c.estado AS localizacao,
+    COUNT(r.id_reserva) AS total_compras,
+    SUM(r.valor_total) AS valor_total_gasto,
+    ROUND(AVG(r.valor_total), 2) AS ticket_medio,
+    MAX(r.data_reserva) AS ultima_compra
+FROM tb_clientes c
+INNER JOIN tb_reservas r ON c.id_cliente = r.id_cliente
+WHERE r.status_reserva IN ('CONFIRMADA', 'FINALIZADA')
+GROUP BY c.id_cliente, c.nome_completo, c.email, c.cidade, c.estado
+ORDER BY valor_total_gasto DESC
+LIMIT 10;
 
 -- CONSULTA 5: Ocupação de Pacotes
 -- Objetivo: Controle de disponibilidade de vagas
@@ -290,21 +283,16 @@ ORDER BY preco_por_dia ASC, avaliacao_media DESC NULLS LAST;
 -- CONSULTA 9: Análise de Descontos Concedidos
 -- Objetivo: Avaliar impacto dos descontos na receita
 SELECT
-    CASE
-        WHEN r.desconto_percentual = 0 THEN 'Sem desconto'
-        WHEN r.desconto_percentual <= 5 THEN '1% a 5%'
-        WHEN r.desconto_percentual <= 10 THEN '5% a 10%'
-        WHEN r.desconto_percentual <= 15 THEN '10% a 15%'
-        ELSE 'Acima de 15%'
-    END AS faixa_desconto,
+    r.desconto_percentual,
     COUNT(r.id_reserva) AS quantidade_vendas,
     SUM(r.valor_unitario * r.numero_passageiros) AS valor_sem_desconto,
     SUM(r.valor_total) AS valor_com_desconto,
-    SUM(r.valor_unitario * r.numero_passageiros) - SUM(r.valor_total) AS valor_descontado
+    SUM(r.valor_unitario * r.numero_passageiros) - SUM(r.valor_total) AS valor_descontado,
+    ROUND(AVG(r.valor_total), 2) AS ticket_medio
 FROM tb_reservas r
 WHERE r.status_reserva IN ('CONFIRMADA', 'FINALIZADA')
-GROUP BY faixa_desconto
-ORDER BY MIN(r.desconto_percentual);
+GROUP BY r.desconto_percentual
+ORDER BY r.desconto_percentual;
 
 -- CONSULTA 10: Dashboard Executivo
 -- Objetivo: Visão consolidada do negócio

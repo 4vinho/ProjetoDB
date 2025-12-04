@@ -15,10 +15,6 @@
 CREATE INDEX idx_reservas_data_reserva
 ON tb_reservas (data_reserva DESC);
 
-COMMENT ON INDEX idx_reservas_data_reserva IS
-'Índice B-Tree descendente para otimizar consultas por data de reserva.
-Acelera WHERE data_reserva = X, BETWEEN datas, e ORDER BY data_reserva DESC.
-Essencial para relatórios diários/mensais e dashboards com filtros de período.';
 
 ANALYZE tb_reservas;
 
@@ -45,11 +41,6 @@ GANHO: 50-80% em tabelas médias/grandes
 CREATE INDEX idx_reservas_data_status
 ON tb_reservas (data_reserva DESC, status_reserva);
 
-COMMENT ON INDEX idx_reservas_data_status IS
-'Índice composto para consultas com filtro por data E status.
-Suporta WHERE data_reserva = X AND status_reserva = Y.
-Também funciona para WHERE data_reserva = X (usa apenas primeira coluna).
-Uso: Relatórios de reservas confirmadas, análises de conversão por período.';
 
 ANALYZE tb_reservas;
 
@@ -78,12 +69,6 @@ CREATE UNIQUE INDEX idx_pagamentos_numero_transacao_unique
 ON tb_pagamentos (numero_transacao)
 WHERE numero_transacao IS NOT NULL;
 
-COMMENT ON INDEX idx_pagamentos_numero_transacao_unique IS
-'Índice único parcial para número de transação de pagamentos.
-UNIQUE: Impede duplicação (previne fraudes).
-PARTIAL: Aplica-se apenas quando numero_transacao NOT NULL (economiza espaço).
-B-Tree: Busca O(log n) extremamente rápida.
-Uso: Conciliação bancária, validação de pagamentos, APIs de gateway.';
 
 ANALYZE tb_pagamentos;
 
@@ -107,18 +92,12 @@ GANHO: 95%+ em tabelas grandes
 CREATE INDEX idx_pacotes_destino_status
 ON tb_pacotes_turisticos (id_destino, status, data_inicio);
 
-COMMENT ON INDEX idx_pacotes_destino_status IS
-'Otimiza busca de pacotes disponíveis para um destino específico.
-Acelera JOINs com tb_destinos, filtra status, permite range scan em data_inicio.';
 
 -- Índice parcial para reservas ativas (não canceladas)
 CREATE INDEX idx_reservas_ativas_cliente
 ON tb_reservas (id_cliente, status_reserva)
 WHERE status_reserva IN ('CONFIRMADA', 'PENDENTE', 'FINALIZADA');
 
-COMMENT ON INDEX idx_reservas_ativas_cliente IS
-'Índice parcial para reservas ativas (exclui canceladas).
-Menor tamanho, maior velocidade. Uso: Histórico de clientes ativos.';
 
 ANALYZE tb_pacotes_turisticos;
 ANALYZE tb_reservas;

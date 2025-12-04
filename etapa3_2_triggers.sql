@@ -37,17 +37,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION fn_auditoria_reservas() IS
-'Registra todas operações em tb_reservas na tabela de auditoria.
-Armazena dados antes/depois em JSON para compliance e rastreabilidade.';
-
 CREATE TRIGGER trg_auditoria_reservas
 AFTER INSERT OR UPDATE OR DELETE ON tb_reservas
 FOR EACH ROW
 EXECUTE FUNCTION fn_auditoria_reservas();
-
-COMMENT ON TRIGGER trg_auditoria_reservas ON tb_reservas IS
-'Trigger de auditoria automática para rastreabilidade e compliance.';
 
 -- ============================================================================
 -- TRIGGER 2: VALIDAÇÃO DE VAGAS DISPONÍVEIS
@@ -94,17 +87,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION fn_validar_vagas_pacote() IS
-'Valida vagas antes de criar/atualizar reserva.
-Impede overbooking calculando dinamicamente vagas disponíveis.';
-
 CREATE TRIGGER trg_validar_vagas_pacote
 BEFORE INSERT OR UPDATE ON tb_reservas
 FOR EACH ROW
 EXECUTE FUNCTION fn_validar_vagas_pacote();
-
-COMMENT ON TRIGGER trg_validar_vagas_pacote ON tb_reservas IS
-'Trigger de validação que impede overbooking.';
 
 -- ============================================================================
 -- TRIGGER 3: ATUALIZAÇÃO AUTOMÁTICA DE STATUS DE PACOTES
@@ -145,17 +131,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION fn_atualizar_status_pacote() IS
-'Atualiza automaticamente status do pacote baseado em vagas disponíveis.
-Lógica: vagas_restantes ≤ 0 = ESGOTADO, > 0 = DISPONIVEL.';
-
 CREATE TRIGGER trg_atualizar_status_pacote
 AFTER INSERT OR UPDATE OR DELETE ON tb_reservas
 FOR EACH ROW
 EXECUTE FUNCTION fn_atualizar_status_pacote();
-
-COMMENT ON TRIGGER trg_atualizar_status_pacote ON tb_reservas IS
-'Trigger que atualiza automaticamente status do pacote (DISPONIVEL/ESGOTADO).';
 
 -- ============================================================================
 -- TRIGGER 4: VALIDAÇÃO DE VALORES FINANCEIROS
@@ -185,17 +164,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION fn_validar_valor_reserva() IS
-'Valida e corrige cálculo do valor total da reserva.
-Previne fraudes financeiras e erros de arredondamento.';
-
 CREATE TRIGGER trg_validar_valor_reserva
 BEFORE INSERT OR UPDATE ON tb_reservas
 FOR EACH ROW
 EXECUTE FUNCTION fn_validar_valor_reserva();
-
-COMMENT ON TRIGGER trg_validar_valor_reserva ON tb_reservas IS
-'Trigger que valida cálculo financeiro automaticamente.';
 
 -- ============================================================================
 -- TESTES DOS TRIGGERS
