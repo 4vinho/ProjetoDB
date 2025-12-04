@@ -1,16 +1,16 @@
 -- ============================================================================
--- SUPER SQL: POPULAÇÃO MASSIVA DE DADOS
--- Função para popular TODAS as tabelas com MILHÕES de dados aleatórios
--- GARANTIA: TODAS as tabelas terão MILHÕES de registros!
--- Uso: SELECT popular_dados_massivos(); -- Popula com milhões em TODAS
+-- SUPER SQL: POPULACAO MASSIVA DE DADOS
+-- Funcao para popular TODAS as tabelas com MILHOES de dados aleatorios
+-- GARANTIA: TODAS as tabelas terao MILHOES de registros!
+-- Uso: SELECT popular_dados_massivos(); -- Popula com milhoes em TODAS
 -- ============================================================================
 
 \c agencia_turismo;
 
 -- ============================================================================
--- FUNÇÃO PRINCIPAL: popular_dados_massivos
--- Gera MILHÕES de dados aleatórios em TODAS as tabelas
--- SEM parâmetros = popula milhões em todas as tabelas automaticamente
+-- FUNCAO PRINCIPAL: popular_dados_massivos
+-- Gera MILHOES de dados aleatorios em TODAS as tabelas
+-- SEM parametros = popula milhoes em todas as tabelas automaticamente
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION popular_dados_massivos()
@@ -34,21 +34,21 @@ DECLARE
 BEGIN
     v_inicio := clock_timestamp();
 
-    RAISE NOTICE '╔════════════════════════════════════════════════════════╗';
-    RAISE NOTICE '║  INICIANDO POPULAÇÃO MASSIVA DE DADOS                 ║';
-    RAISE NOTICE '║  META: MILHÕES DE REGISTROS EM TODAS AS TABELAS!      ║';
-    RAISE NOTICE '╚════════════════════════════════════════════════════════╝';
+    RAISE NOTICE '+=========================================================+';
+    RAISE NOTICE '|  INICIANDO POPULACAO MASSIVA DE DADOS                  |';
+    RAISE NOTICE '|  META: MILHOES DE REGISTROS EM TODAS AS TABELAS!       |';
+    RAISE NOTICE '+=========================================================+';
     RAISE NOTICE '';
 
     -- Desabilitar triggers temporariamente para performance
     SET session_replication_role = replica;
 
     -- ========================================================================
-    -- 1. TB_CLIENTES: 5 MILHÕES DE REGISTROS
+    -- 1. TB_CLIENTES: 5 MILHOES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [1/10] Populando tb_clientes (5 MILHÕES)...        │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
+    RAISE NOTICE '+------------------------------------------------------+';
+    RAISE NOTICE '| [1/10] Populando tb_clientes (5 MILHOES)...         |';
+    RAISE NOTICE '+------------------------------------------------------+';
 
     FOR batch IN 0..49 LOOP
         INSERT INTO tb_clientes (nome_completo, cpf, data_nascimento, email, telefone, endereco, cidade, estado, cep)
@@ -59,25 +59,25 @@ BEGIN
             DATE '1950-01-01' + (random() * 25000)::INTEGER,
             'cliente' || (batch * v_batch_size + i) || '@email.com.br',
             (ARRAY['11', '21', '31', '41', '51', '61', '71', '81', '85', '91'])[floor(random() * 10 + 1)] || LPAD((900000000 + i)::TEXT, 9, '0'),
-            (ARRAY['Rua das Flores', 'Avenida Brasil', 'Rua Principal', 'Alameda Santos', 'Travessa do Comércio'])[floor(random() * 5 + 1)] || ', ' || i,
-            (ARRAY['São Paulo', 'Rio de Janeiro', 'Brasília', 'Belo Horizonte', 'Salvador', 'Fortaleza', 'Recife', 'Curitiba', 'Porto Alegre', 'Manaus', 'Belém', 'Goiânia', 'Campinas', 'Guarulhos', 'São Luís'])[floor(random() * 15 + 1)],
+            (ARRAY['Rua das Flores', 'Avenida Brasil', 'Rua Principal', 'Alameda Santos', 'Travessa do Comercio'])[floor(random() * 5 + 1)] || ', ' || i,
+            (ARRAY['Sao Paulo', 'Rio de Janeiro', 'Brasilia', 'Belo Horizonte', 'Salvador', 'Fortaleza', 'Recife', 'Curitiba', 'Porto Alegre', 'Manaus', 'Belem', 'Goiania', 'Campinas', 'Guarulhos', 'Sao Luis'])[floor(random() * 15 + 1)],
             (ARRAY['SP', 'RJ', 'DF', 'MG', 'BA', 'CE', 'PE', 'PR', 'RS', 'AM', 'PA', 'GO', 'MA', 'ES', 'SC'])[floor(random() * 15 + 1)],
             LPAD((10000000 + (random() * 89999999)::INTEGER)::TEXT, 8, '0')
         FROM generate_series(1, v_batch_size) AS i;
 
-        RAISE NOTICE '  ► Progresso: % / 5.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 2)::INTEGER;
+        RAISE NOTICE '  > Progresso: % / 5.000.000 (%%) concluido', (batch + 1) * v_batch_size, ((batch + 1) * 2)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 5000000;
-    RAISE NOTICE '  ✓ tb_clientes: 5.000.000 registros inseridos!';
+    RAISE NOTICE '  OK tb_clientes: 5.000.000 registros inseridos!';
     RAISE NOTICE '';
 
     -- ========================================================================
-    -- 2. TB_FUNCIONARIOS: 2 MILHÕES DE REGISTROS
+    -- 2. TB_FUNCIONARIOS: 2 MILHOES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [2/10] Populando tb_funcionarios (2 MILHÕES)...    │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
+    RAISE NOTICE '+------------------------------------------------------+';
+    RAISE NOTICE '| [2/10] Populando tb_funcionarios (2 MILHOES)...     |';
+    RAISE NOTICE '+------------------------------------------------------+';
 
     FOR batch IN 0..19 LOOP
         INSERT INTO tb_funcionarios (nome_completo, cpf, email_corporativo, telefone, cargo, salario, data_admissao, status)
@@ -93,19 +93,19 @@ BEGIN
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'FERIAS', 'AFASTADO'])[floor(random() * 7 + 1)]
         FROM generate_series(1, v_batch_size) AS i;
 
-        RAISE NOTICE '  ► Progresso: % / 2.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 5)::INTEGER;
+        RAISE NOTICE '  > Progresso: % / 2.000.000 (%%) concluido', (batch + 1) * v_batch_size, ((batch + 1) * 5)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 2000000;
-    RAISE NOTICE '  ✓ tb_funcionarios: 2.000.000 registros inseridos!';
+    RAISE NOTICE '  OK tb_funcionarios: 2.000.000 registros inseridos!';
     RAISE NOTICE '';
 
     -- ========================================================================
-    -- 3. TB_DESTINOS: 1 MILHÃO DE REGISTROS
+    -- 3. TB_DESTINOS: 1 MILHAO DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [3/10] Populando tb_destinos (1 MILHÃO)...         │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
+    RAISE NOTICE '+------------------------------------------------------+';
+    RAISE NOTICE '| [3/10] Populando tb_destinos (1 MILHAO)...          |';
+    RAISE NOTICE '+------------------------------------------------------+';
 
     FOR batch IN 0..9 LOOP
         INSERT INTO tb_destinos (nome_destino, pais, estado, cidade, descricao, categoria, clima, idioma_principal, moeda_local, status)
@@ -442,3 +442,5 @@ $$ LANGUAGE plpgsql;
 -- ============================================================================
 
 SELECT '🚀 Super SQL criado! Execute: SELECT popular_dados_massivos();' AS status;
+
+
