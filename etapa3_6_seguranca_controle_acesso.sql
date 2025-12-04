@@ -1,697 +1,214 @@
 -- ============================================================================
 -- ETAPA 3.6: SEGURANÇA E CONTROLE DE ACESSO (DCL)
--- ============================================================================
--- Descrição: Implementação de segurança e controle de acesso granular
--- Requisitos do projeto:
---   - Criar 3 usuários com perfis distintos (Admin, Operador, Auditor)
---   - Usar GRANT e REVOKE para permissões granulares
---   - Demonstrar bloqueio de acesso indevido
--- Objetivo: Aplicar boas práticas de segurança em nível de banco de dados
+-- Criação de 3 usuários com perfis distintos: Admin, Operador, Auditor
+-- Uso de GRANT e REVOKE para permissões granulares
 -- ============================================================================
 
--- Conectar ao banco de dados
 \c agencia_turismo;
 
 -- ============================================================================
--- CONCEITOS DE SEGURANÇA EM BANCO DE DADOS
+-- CRIAÇÃO DE USUÁRIOS COM PERFIS DISTINTOS
 -- ============================================================================
 
-/*
-PRINCÍPIOS DE SEGURANÇA:
+-- USUÁRIO 1: Administrador (Acesso total)
+DROP USER IF EXISTS admin_agencia;
+CREATE USER admin_agencia WITH PASSWORD 'Admin@2024!Seguro';
 
-1. LEAST PRIVILEGE (Menor Privilégio):
-   - Usuários têm apenas permissões necessárias
-   - Nunca mais que o mínimo exigido
-   - Reduz superfície de ataque
+COMMENT ON ROLE admin_agencia IS 'Administrador com acesso completo ao banco';
 
-2. SEPARATION OF DUTIES (Separação de Responsabilidades):
-   - Diferentes perfis para diferentes funções
-   - Administrador ≠ Operador ≠ Auditor
-   - Evita fraudes internas
+-- USUÁRIO 2: Operador (Leitura + Escrita limitada)
+DROP USER IF EXISTS operador_vendas;
+CREATE USER operador_vendas WITH PASSWORD 'Oper@2024!Vendas';
 
-3. DEFENSE IN DEPTH (Defesa em Profundidade):
-   - Múltiplas camadas de segurança
-   - Autenticação + Autorização + Auditoria
-   - Criptografia + Firewall + Logs
+COMMENT ON ROLE operador_vendas IS 'Operador de vendas: pode ler e inserir reservas';
 
-4. AUDITABILIDADE:
-   - Registrar todas as ações críticas
-   - Logs imutáveis
-   - Rastreamento de mudanças
+-- USUÁRIO 3: Auditor (Somente leitura)
+DROP USER IF EXISTS auditor_financeiro;
+CREATE USER auditor_financeiro WITH PASSWORD 'Audit@2024!Financ';
 
-HIERARQUIA DE PERMISSÕES NO POSTGRESQL:
-
-SUPERUSER (postgres)
-   └─ DATABASE
-       └─ SCHEMA
-           └─ TABLES / VIEWS / FUNCTIONS / SEQUENCES
-               └─ COLUMNS (RLS - Row Level Security)
-
-COMANDOS DCL (Data Control Language):
-
-- CREATE ROLE / CREATE USER
-- GRANT: Conceder permissões
-- REVOKE: Revogar permissões
-- ALTER ROLE: Modificar propriedades
-- DROP ROLE: Remover usuário
-*/
+COMMENT ON ROLE auditor_financeiro IS 'Auditor: acesso somente leitura para auditoria';
 
 -- ============================================================================
--- ETAPA 1: CRIAÇÃO DE ROLES (PERFIS DE ACESSO)
+-- PERFIL 1: ADMINISTRADOR (admin_agencia)
+-- Permissões: Acesso total (SELECT, INSERT, UPDATE, DELETE em todas as tabelas)
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- ROLE 1: ADMINISTRADOR (db_admin)
--- ----------------------------------------------------------------------------
--- Perfil: Administrador do sistema
--- Permissões: Todas (DDL, DML, DCL)
--- Uso: Gestão completa do banco de dados
--- Limitações: Não é SUPERUSER (não cria databases/roles)
--- ----------------------------------------------------------------------------
+-- Conceder acesso ao banco de dados
+GRANT CONNECT ON DATABASE agencia_turismo TO admin_agencia;
 
--- Remover se já existir (idempotência)
-DROP ROLE IF EXISTS db_admin;
+-- Conceder uso do schema public
+GRANT USAGE ON SCHEMA public TO admin_agencia;
 
-CREATE ROLE db_admin
-    WITH
-    LOGIN                       -- Pode fazer login
-    PASSWORD 'Admin@2024!'      -- Senha forte (em produção: hash bcrypt)
-    NOSUPERUSER                 -- Não é superusuário
-    CREATEDB                    -- Pode criar databases
-    NOCREATEROLE                -- Não pode criar roles
-    NOINHERIT                   -- Não herda permissões automaticamente
-    NOREPLICATION               -- Não pode replicar
-    CONNECTION LIMIT 5          -- Máximo 5 conexões simultâneas
-    VALID UNTIL '2025-12-31';   -- Expira em 31/12/2025
+-- Conceder todos os privilégios em todas as tabelas
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO admin_agencia;
 
-COMMENT ON ROLE db_admin IS
-'Administrador do banco de dados da agência de turismo.
-RESPONSABILIDADES:
-- Gerenciar estrutura do banco (CREATE, ALTER, DROP)
-- Configurar permissões de outros usuários
-- Executar backups e restore
-- Monitorar performance e logs
-- Manutenção (VACUUM, ANALYZE, REINDEX)
-RESTRIÇÕES:
-- Não pode criar novos roles (necessita DBA)
-- Não pode acessar outros bancos
-- Conexões limitadas a 5 simultâneas';
+-- Conceder privilégios em sequences (para AUTO_INCREMENT/SERIAL)
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO admin_agencia;
 
--- Conceder permissões amplas ao administrador
-GRANT ALL PRIVILEGES ON DATABASE agencia_turismo TO db_admin;
-GRANT ALL PRIVILEGES ON SCHEMA public TO db_admin;
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO db_admin;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO db_admin;
-GRANT ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public TO db_admin;
+-- Permitir criação de objetos
+GRANT CREATE ON SCHEMA public TO admin_agencia;
 
--- Garantir permissões em objetos futuros
+-- Configurar privilégios padrão para novos objetos
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT ALL ON TABLES TO db_admin;
+GRANT ALL PRIVILEGES ON TABLES TO admin_agencia;
+
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT ALL ON SEQUENCES TO db_admin;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public
-    GRANT EXECUTE ON FUNCTIONS TO db_admin;
-
--- ----------------------------------------------------------------------------
--- ROLE 2: OPERADOR / VENDEDOR (db_operador)
--- ----------------------------------------------------------------------------
--- Perfil: Funcionário operacional (vendedor, atendente)
--- Permissões: Leitura ampla, escrita limitada
--- Uso: Operação diária (criar reservas, consultar pacotes)
--- Limitações: Não pode alterar estrutura, não pode deletar
--- ----------------------------------------------------------------------------
-
-DROP ROLE IF EXISTS db_operador;
-
-CREATE ROLE db_operador
-    WITH
-    LOGIN
-    PASSWORD 'Operador@2024!'
-    NOSUPERUSER
-    NOCREATEDB
-    NOCREATEROLE
-    NOINHERIT
-    NOREPLICATION
-    CONNECTION LIMIT 20         -- Múltiplos operadores podem conectar
-    VALID UNTIL '2025-12-31';
-
-COMMENT ON ROLE db_operador IS
-'Operador/Vendedor do sistema de agência de turismo.
-PERMISSÕES:
-- SELECT em todas as tabelas operacionais
-- INSERT em tb_reservas, tb_pagamentos, tb_avaliacoes
-- UPDATE em tb_reservas (status), tb_pagamentos (status)
-- Executar functions de negócio
-- Acesso a views operacionais
-RESTRIÇÕES:
-- Não pode DELETE (apenas admin)
-- Não pode alterar estrutura (DDL)
-- Não pode acessar tb_auditoria diretamente
-- Não pode modificar clientes ou pacotes';
-
--- Permissões de leitura (SELECT) em todas as tabelas
-GRANT CONNECT ON DATABASE agencia_turismo TO db_operador;
-GRANT USAGE ON SCHEMA public TO db_operador;
-
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO db_operador;
-GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO db_operador;
-
--- Permissões específicas de escrita
-
--- tb_reservas: Pode inserir e atualizar status
-GRANT INSERT ON tb_reservas TO db_operador;
-GRANT UPDATE (status_reserva, observacoes) ON tb_reservas TO db_operador;
-
--- tb_pagamentos: Pode inserir e atualizar status
-GRANT INSERT ON tb_pagamentos TO db_operador;
-GRANT UPDATE (status_pagamento, data_pagamento) ON tb_pagamentos TO db_operador;
-
--- tb_avaliacoes: Pode inserir (clientes avaliando)
-GRANT INSERT ON tb_avaliacoes TO db_operador;
-
--- Permissões em sequences (para auto-increment)
-GRANT USAGE ON SEQUENCE tb_reservas_id_reserva_seq TO db_operador;
-GRANT USAGE ON SEQUENCE tb_pagamentos_id_pagamento_seq TO db_operador;
-GRANT USAGE ON SEQUENCE tb_avaliacoes_id_avaliacao_seq TO db_operador;
-
--- Executar functions específicas
-GRANT EXECUTE ON FUNCTION fn_criar_reserva_completa TO db_operador;
-GRANT EXECUTE ON FUNCTION fn_processar_pagamento TO db_operador;
-GRANT EXECUTE ON FUNCTION fn_relatorio_faturamento TO db_operador;
-
--- Acesso às views
-GRANT SELECT ON vw_pacotes_completos TO db_operador;
-GRANT SELECT ON vw_pacotes_disponiveis_filtrados TO db_operador;
-GRANT SELECT ON vw_dashboard_vendas TO db_operador;
-
--- ----------------------------------------------------------------------------
--- ROLE 3: AUDITOR (db_auditor)
--- ----------------------------------------------------------------------------
--- Perfil: Auditor interno/externo
--- Permissões: Apenas leitura (SELECT)
--- Uso: Fiscalização, compliance, análise de dados
--- Limitações: Nenhuma escrita, acesso especial a auditoria
--- ----------------------------------------------------------------------------
-
-DROP ROLE IF EXISTS db_auditor;
-
-CREATE ROLE db_auditor
-    WITH
-    LOGIN
-    PASSWORD 'Auditor@2024!'
-    NOSUPERUSER
-    NOCREATEDB
-    NOCREATEROLE
-    NOINHERIT
-    NOREPLICATION
-    CONNECTION LIMIT 3
-    VALID UNTIL '2025-12-31';
-
-COMMENT ON ROLE db_auditor IS
-'Auditor do sistema - Acesso somente leitura.
-PERMISSÕES:
-- SELECT em TODAS as tabelas (incluindo auditoria)
-- SELECT em todas as views
-- Executar functions de relatório (sem escrita)
-- Acesso a logs e metadados do sistema
-RESTRIÇÕES:
-- NENHUMA escrita (INSERT/UPDATE/DELETE)
-- NENHUMA alteração de estrutura
-- Apenas leitura e análise';
-
--- Permissões de leitura total
-GRANT CONNECT ON DATABASE agencia_turismo TO db_auditor;
-GRANT USAGE ON SCHEMA public TO db_auditor;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO db_auditor;
-GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO db_auditor;
-
--- Acesso especial à tabela de auditoria
-GRANT SELECT ON tb_auditoria TO db_auditor;
-
--- Functions de relatório (sem side effects)
-GRANT EXECUTE ON FUNCTION fn_relatorio_faturamento TO db_auditor;
-GRANT EXECUTE ON FUNCTION fn_calcular_comissao_vendedor TO db_auditor;
-
--- Acesso a todas as views
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO db_auditor;
-
--- Permissões em tabelas do sistema (metadados)
-GRANT SELECT ON pg_stat_user_tables TO db_auditor;
-GRANT SELECT ON pg_stat_user_indexes TO db_auditor;
-GRANT SELECT ON pg_stat_activity TO db_auditor;
-
--- ----------------------------------------------------------------------------
--- ROLE 4: APLICAÇÃO (db_app) - Usuário da aplicação web/mobile
--- ----------------------------------------------------------------------------
--- Perfil: Credenciais usadas pela aplicação
--- Permissões: Intermediárias (leitura ampla, escrita controlada)
--- Uso: Backend da aplicação
--- ----------------------------------------------------------------------------
-
-DROP ROLE IF EXISTS db_app;
-
-CREATE ROLE db_app
-    WITH
-    LOGIN
-    PASSWORD 'App@SecurePass2024!'
-    NOSUPERUSER
-    NOCREATEDB
-    NOCREATEROLE
-    INHERIT                     -- Pode herdar de outros roles
-    NOREPLICATION
-    CONNECTION LIMIT 50;        -- Pool de conexões da aplicação
-
-COMMENT ON ROLE db_app IS
-'Usuário utilizado pela aplicação backend.
-Credenciais armazenadas em variáveis de ambiente (nunca em código).';
-
--- Herdar permissões do operador
-GRANT db_operador TO db_app;
-
--- Permissões adicionais
-GRANT INSERT ON tb_clientes TO db_app;
-GRANT UPDATE (email, telefone, endereco, cidade, estado, cep) ON tb_clientes TO db_app;
-GRANT USAGE ON SEQUENCE tb_clientes_id_cliente_seq TO db_app;
+GRANT ALL PRIVILEGES ON SEQUENCES TO admin_agencia;
 
 -- ============================================================================
--- ETAPA 2: ROW LEVEL SECURITY (RLS) - SEGURANÇA EM NÍVEL DE LINHA
+-- PERFIL 2: OPERADOR DE VENDAS (operador_vendas)
+-- Permissões: Leitura geral + Inserção/atualização limitada
+-- Pode: Consultar tudo, Inserir/Atualizar reservas e pagamentos
+-- Não pode: Deletar, Alterar estrutura, Acessar auditoria
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- Cenário: Vendedores só podem ver suas próprias vendas
--- ----------------------------------------------------------------------------
+GRANT CONNECT ON DATABASE agencia_turismo TO operador_vendas;
+GRANT USAGE ON SCHEMA public TO operador_vendas;
 
--- Habilitar RLS na tabela
-ALTER TABLE tb_reservas ENABLE ROW LEVEL SECURITY;
+-- Leitura (SELECT) em todas as tabelas
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO operador_vendas;
 
--- Política: Vendedor vê apenas reservas que ele criou
-CREATE POLICY pol_vendedor_proprias_reservas
-    ON tb_reservas
-    FOR SELECT
-    TO db_operador
-    USING (
-        id_funcionario IN (
-            SELECT id_funcionario
-            FROM tb_funcionarios
-            WHERE email_corporativo = CURRENT_USER || '@viagenseaventuras.com.br'
-        )
-    );
+-- Inserção e atualização APENAS em tabelas operacionais
+GRANT INSERT, UPDATE ON tb_reservas TO operador_vendas;
+GRANT INSERT, UPDATE ON tb_pagamentos TO operador_vendas;
+GRANT INSERT ON tb_avaliacoes TO operador_vendas;
 
-COMMENT ON POLICY pol_vendedor_proprias_reservas ON tb_reservas IS
-'Row-Level Security: Vendedores veem apenas suas vendas.
-Vincula CURRENT_USER (login do PostgreSQL) ao email do funcionário.';
+-- Acesso a sequences para gerar IDs
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO operador_vendas;
 
--- Admin e Auditor veem tudo (bypass RLS)
-ALTER TABLE tb_reservas FORCE ROW LEVEL SECURITY;
+-- REVOGAR acesso à tabela de auditoria (apenas leitura permitida anteriormente)
+REVOKE INSERT, UPDATE, DELETE ON tb_auditoria FROM operador_vendas;
 
-CREATE POLICY pol_admin_todas_reservas
-    ON tb_reservas
-    FOR ALL
-    TO db_admin, db_auditor
-    USING (true);  -- Sem restrições
-
--- Desabilitar RLS para testes (pode reabilitar depois)
-ALTER TABLE tb_reservas DISABLE ROW LEVEL SECURITY;
+-- REVOGAR modificações em tabelas mestras
+REVOKE INSERT, UPDATE, DELETE ON tb_clientes FROM operador_vendas;
+REVOKE INSERT, UPDATE, DELETE ON tb_funcionarios FROM operador_vendas;
+REVOKE INSERT, UPDATE, DELETE ON tb_destinos FROM operador_vendas;
+REVOKE INSERT, UPDATE, DELETE ON tb_hoteis FROM operador_vendas;
+REVOKE INSERT, UPDATE, DELETE ON tb_transportes FROM operador_vendas;
+REVOKE INSERT, UPDATE, DELETE ON tb_pacotes_turisticos FROM operador_vendas;
 
 -- ============================================================================
--- ETAPA 3: DEMONSTRAÇÃO DE BLOQUEIO DE ACESSO
+-- PERFIL 3: AUDITOR FINANCEIRO (auditor_financeiro)
+-- Permissões: Somente leitura (SELECT) em tabelas específicas
+-- Pode: Consultar reservas, pagamentos, auditoria, clientes
+-- Não pode: Modificar, Inserir, Deletar nada
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- Teste 1: Operador tentando DELETE (deve FALHAR)
--- ----------------------------------------------------------------------------
+GRANT CONNECT ON DATABASE agencia_turismo TO auditor_financeiro;
+GRANT USAGE ON SCHEMA public TO auditor_financeiro;
+
+-- Leitura apenas em tabelas relacionadas a finanças e auditoria
+GRANT SELECT ON tb_reservas TO auditor_financeiro;
+GRANT SELECT ON tb_pagamentos TO auditor_financeiro;
+GRANT SELECT ON tb_auditoria TO auditor_financeiro;
+GRANT SELECT ON tb_clientes TO auditor_financeiro;
+GRANT SELECT ON tb_funcionarios TO auditor_financeiro;
+
+-- Acesso às views de relatórios
+GRANT SELECT ON vw_dashboard_vendas TO auditor_financeiro;
+GRANT SELECT ON vw_pacotes_completos TO auditor_financeiro;
+
+-- REVOGAR qualquer permissão de escrita (garantia)
+REVOKE INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public FROM auditor_financeiro;
+
+-- ============================================================================
+-- TESTES DE PERMISSÕES
+-- ============================================================================
+
+-- TESTE 1: Administrador (deve ter acesso total)
+-- Execute em sessão conectada como admin_agencia:
 /*
--- Conectar como db_operador
-SET ROLE db_operador;
-
--- Tentar deletar cliente (DEVE FALHAR)
-DELETE FROM tb_clientes WHERE id_cliente = 1;
-
--- ERRO ESPERADO:
--- ERROR: permission denied for table tb_clientes
-
--- Voltar ao admin
-RESET ROLE;
+\c agencia_turismo admin_agencia
+SELECT * FROM tb_reservas LIMIT 5;  -- Deve funcionar
+INSERT INTO tb_clientes (nome_completo, cpf, data_nascimento, email, telefone)
+VALUES ('Teste Admin', '99999999999', '1990-01-01', 'admin@test.com', '61999999999');  -- Deve funcionar
+DELETE FROM tb_clientes WHERE cpf = '99999999999';  -- Deve funcionar
 */
 
--- ----------------------------------------------------------------------------
--- Teste 2: Operador tentando alterar estrutura (deve FALHAR)
--- ----------------------------------------------------------------------------
+-- TESTE 2: Operador de Vendas (leitura + escrita limitada)
+-- Execute em sessão conectada como operador_vendas:
 /*
-SET ROLE db_operador;
-
--- Tentar criar tabela (DEVE FALHAR)
-CREATE TABLE teste_seguranca (id INT);
-
--- ERRO ESPERADO:
--- ERROR: permission denied for schema public
-
--- Tentar dropar coluna (DEVE FALHAR)
-ALTER TABLE tb_clientes DROP COLUMN email;
-
--- ERRO ESPERADO:
--- ERROR: must be owner of table tb_clientes
-
-RESET ROLE;
+\c agencia_turismo operador_vendas
+SELECT * FROM tb_reservas;  -- Deve funcionar (leitura)
+INSERT INTO tb_reservas (id_cliente, id_pacote, id_funcionario, numero_passageiros, valor_unitario, desconto_percentual, valor_total, status_reserva)
+VALUES (1, 2, 4, 1, 15000.00, 5.00, 14250.00, 'CONFIRMADA');  -- Deve funcionar (inserção)
+DELETE FROM tb_reservas WHERE id_reserva = 1;  -- Deve FALHAR (sem permissão DELETE)
+UPDATE tb_clientes SET email = 'teste@test.com' WHERE id_cliente = 1;  -- Deve FALHAR (tabela bloqueada)
 */
 
--- ----------------------------------------------------------------------------
--- Teste 3: Auditor tentando INSERT (deve FALHAR)
--- ----------------------------------------------------------------------------
+-- TESTE 3: Auditor Financeiro (somente leitura)
+-- Execute em sessão conectada como auditor_financeiro:
 /*
-SET ROLE db_auditor;
-
--- SELECT funciona
-SELECT COUNT(*) FROM tb_reservas;
-
--- INSERT deve falhar
-INSERT INTO tb_reservas (id_cliente, id_pacote, id_funcionario, numero_passageiros, valor_unitario, valor_total)
-VALUES (1, 1, 1, 1, 1000, 1000);
-
--- ERRO ESPERADO:
--- ERROR: permission denied for table tb_reservas
-
-RESET ROLE;
+\c agencia_turismo auditor_financeiro
+SELECT * FROM tb_reservas;  -- Deve funcionar (leitura)
+SELECT * FROM tb_auditoria;  -- Deve funcionar (leitura)
+SELECT * FROM vw_dashboard_vendas;  -- Deve funcionar (view permitida)
+INSERT INTO tb_pagamentos (id_reserva, forma_pagamento, valor_parcela)
+VALUES (1, 'PIX', 100.00);  -- Deve FALHAR (sem permissão INSERT)
+SELECT * FROM tb_destinos;  -- Deve FALHAR (tabela não permitida)
 */
 
 -- ============================================================================
--- ETAPA 4: AUDITORIA DE ACESSOS E PERMISSÕES
+-- VISUALIZAÇÃO DE PERMISSÕES
 -- ============================================================================
 
--- Ver permissões de uma tabela
+-- Listar permissões de todos os usuários criados
 SELECT
-    grantee,
-    privilege_type,
-    is_grantable
-FROM
-    information_schema.table_privileges
-WHERE
-    table_name = 'tb_reservas'
-    AND table_schema = 'public'
-ORDER BY
-    grantee, privilege_type;
+    grantee AS usuario,
+    table_schema AS schema,
+    table_name AS tabela,
+    privilege_type AS permissao
+FROM information_schema.table_privileges
+WHERE grantee IN ('admin_agencia', 'operador_vendas', 'auditor_financeiro')
+ORDER BY grantee, table_name, privilege_type;
 
--- Ver permissões de um usuário específico
+-- Verificar roles e suas configurações
 SELECT
-    table_name,
-    privilege_type
-FROM
-    information_schema.table_privileges
-WHERE
-    grantee = 'db_operador'
-    AND table_schema = 'public'
-ORDER BY
-    table_name, privilege_type;
-
--- Listar todos os roles/usuários
-SELECT
-    rolname AS nome_role,
-    rolsuper AS superuser,
+    rolname AS usuario,
+    rolsuper AS superusuario,
     rolcreatedb AS pode_criar_db,
     rolcreaterole AS pode_criar_role,
-    rolcanlogin AS pode_login,
-    rolconnlimit AS limite_conexoes,
-    rolvaliduntil AS validade
-FROM
-    pg_roles
-WHERE
-    rolname NOT LIKE 'pg_%'  -- Excluir roles do sistema
-ORDER BY
-    rolname;
-
--- Ver conexões ativas por usuário
-SELECT
-    usename AS usuario,
-    COUNT(*) AS conexoes_ativas,
-    MAX(backend_start) AS ultima_conexao
-FROM
-    pg_stat_activity
-WHERE
-    datname = 'agencia_turismo'
-GROUP BY
-    usename
-ORDER BY
-    conexoes_ativas DESC;
+    rolcanlogin AS pode_logar
+FROM pg_roles
+WHERE rolname IN ('admin_agencia', 'operador_vendas', 'auditor_financeiro');
 
 -- ============================================================================
--- ETAPA 5: REVOGAÇÃO DE PERMISSÕES
+-- REVOGAÇÃO DE PERMISSÕES (EXEMPLO)
+-- Demonstra como remover acessos específicos
 -- ============================================================================
 
--- Exemplo: Revogar permissão de UPDATE que foi concedida por engano
+-- Exemplo: Remover permissão de UPDATE de operador_vendas em tb_pagamentos
+-- REVOKE UPDATE ON tb_pagamentos FROM operador_vendas;
 
--- Conceder UPDATE em tb_clientes para operador (ERRADO!)
-GRANT UPDATE ON tb_clientes TO db_operador;
-
--- Ver que permissão foi concedida
-SELECT privilege_type
-FROM information_schema.table_privileges
-WHERE table_name = 'tb_clientes'
-AND grantee = 'db_operador';
-
--- Revogar UPDATE (CORRIGIR)
-REVOKE UPDATE ON tb_clientes FROM db_operador;
-
--- Confirmar revogação
-SELECT privilege_type
-FROM information_schema.table_privileges
-WHERE table_name = 'tb_clientes'
-AND grantee = 'db_operador';
+-- Exemplo: Bloquear completamente acesso de um usuário
+-- REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM operador_vendas;
+-- REVOKE CONNECT ON DATABASE agencia_turismo FROM operador_vendas;
 
 -- ============================================================================
--- ETAPA 6: CRIPTOGRAFIA E SEGURANÇA DE SENHA
+-- BOAS PRÁTICAS DE SEGURANÇA
 -- ============================================================================
 
--- Extensão pgcrypto para criptografia
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- 1. Rotação de senhas (alterar senhas periodicamente)
+-- ALTER USER operador_vendas WITH PASSWORD 'NovaSenha@2025!';
 
--- Exemplo: Criptografar dados sensíveis
-CREATE TABLE tb_dados_sensiveis_exemplo (
-    id SERIAL PRIMARY KEY,
-    usuario VARCHAR(50),
-    senha_hash TEXT,  -- Armazenar apenas hash (nunca plain text)
-    cpf_criptografado BYTEA,
-    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- 2. Auditoria de conexões (verificar quem está conectado)
+SELECT pid, usename, application_name, client_addr, backend_start, state
+FROM pg_stat_activity
+WHERE datname = 'agencia_turismo';
 
--- Inserir com senha hasheada
-INSERT INTO tb_dados_sensiveis_exemplo (usuario, senha_hash)
-VALUES ('usuario_teste', crypt('senha_secreta', gen_salt('bf')));
+-- 3. Limitar conexões por usuário
+ALTER USER operador_vendas CONNECTION LIMIT 5;
 
--- Validar senha
-SELECT
-    usuario,
-    (senha_hash = crypt('senha_secreta', senha_hash)) AS senha_correta
-FROM
-    tb_dados_sensiveis_exemplo
-WHERE
-    usuario = 'usuario_teste';
-
--- Criptografar CPF (simétrico)
-INSERT INTO tb_dados_sensiveis_exemplo (usuario, cpf_criptografado)
-VALUES (
-    'usuario_cpf',
-    pgp_sym_encrypt('12345678901', 'chave_secreta_forte')
-);
-
--- Descriptografar CPF
-SELECT
-    usuario,
-    pgp_sym_decrypt(cpf_criptografado, 'chave_secreta_forte') AS cpf
-FROM
-    tb_dados_sensiveis_exemplo
-WHERE
-    usuario = 'usuario_cpf';
-
--- Limpar exemplo
-DROP TABLE tb_dados_sensiveis_exemplo;
-
--- ============================================================================
--- ETAPA 7: BOAS PRÁTICAS DE SEGURANÇA
--- ============================================================================
-
-/*
-CHECKLIST DE SEGURANÇA:
-
-1. AUTENTICAÇÃO:
-   ✓ Senhas fortes (mínimo 12 caracteres, complexidade)
-   ✓ Expiration dates (VALID UNTIL)
-   ✓ Trocar senhas periodicamente
-   ✓ Nunca armazenar senhas em plain text
-   ✓ Usar autenticação externa (LDAP, Kerberos, etc.)
-
-2. AUTORIZAÇÃO:
-   ✓ Princípio do menor privilégio
-   ✓ Separação de responsabilidades
-   ✓ Usar roles ao invés de usuários individuais
-   ✓ Revisar permissões regularmente
-   ✓ Revogar permissões desnecessárias
-
-3. AUDITORIA:
-   ✓ Habilitar logging (postgresql.conf)
-   ✓ Registrar todas as conexões
-   ✓ Registrar DDL (ALTER, DROP, CREATE)
-   ✓ Registrar acessos a dados sensíveis
-   ✓ Triggers de auditoria (já implementados)
-   ✓ Logs imutáveis (write-once)
-
-4. CRIPTOGRAFIA:
-   ✓ SSL/TLS para conexões (pg_hba.conf)
-   ✓ Criptografia de dados em repouso
-   ✓ Hash de senhas (bcrypt, scrypt)
-   ✓ Criptografia de backups
-   ✓ Nunca expor chaves de criptografia
-
-5. NETWORK SECURITY:
-   ✓ Firewall: Apenas portas necessárias
-   ✓ pg_hba.conf: Restringir IPs permitidos
-   ✓ VPN para acesso remoto
-   ✓ Não expor PostgreSQL na internet
-   ✓ Usar proxy reverso
-
-6. BACKUP E RECOVERY:
-   ✓ Backups regulares e automatizados
-   ✓ Testar restore periodicamente
-   ✓ Backups offsite (em local diferente)
-   ✓ Criptografar backups
-   ✓ Retention policy (quanto tempo manter)
-
-7. MONITORAMENTO:
-   ✓ Alertas de falhas de login
-   ✓ Monitorar queries suspeitas
-   ✓ Detectar tentativas de SQL injection
-   ✓ Alertas de mudanças de permissões
-   ✓ Monitorar uso de recursos
-
-8. COMPLIANCE:
-   ✓ LGPD (Brasil): Proteção de dados pessoais
-   ✓ GDPR (Europa): Direito ao esquecimento
-   ✓ PCI-DSS: Dados de cartão de crédito
-   ✓ Documentar políticas de segurança
-   ✓ Treinamento de equipe
-
-CONFIGURAÇÕES RECOMENDADAS (postgresql.conf):
-
-# Logging
-log_connections = on
-log_disconnections = on
-log_duration = on
-log_statement = 'ddl'  # Registrar CREATE, ALTER, DROP
-log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d,app=%a,client=%h '
-
-# SSL
-ssl = on
-ssl_cert_file = '/path/to/server.crt'
-ssl_key_file = '/path/to/server.key'
-
-# Timeouts
-statement_timeout = 30000  # 30 segundos
-idle_in_transaction_session_timeout = 60000  # 1 minuto
-
-# Password encryption
-password_encryption = scram-sha-256  # Mais seguro que md5
-
-CONFIGURAÇÕES RECOMENDADAS (pg_hba.conf):
-
-# Apenas conexões locais para postgres
-local   all             postgres                                peer
-
-# Aplicação com senha criptografada
-host    agencia_turismo db_app          10.0.0.0/8            scram-sha-256
-
-# Operadores apenas da rede interna
-host    agencia_turismo db_operador     192.168.1.0/24        scram-sha-256
-
-# Auditor apenas com VPN
-host    agencia_turismo db_auditor      10.10.10.10/32        scram-sha-256
-
-# Bloquear todo o resto
-host    all             all             0.0.0.0/0             reject
-*/
-
--- ============================================================================
--- SCRIPTS DE MANUTENÇÃO DE SEGURANÇA
--- ============================================================================
-
--- Relatório de permissões por usuário
-CREATE OR REPLACE VIEW vw_relatorio_permissoes AS
-SELECT
-    r.rolname AS usuario,
-    r.rolsuper AS superuser,
-    r.rolcanlogin AS pode_login,
-    r.rolconnlimit AS limite_conexoes,
-    r.rolvaliduntil AS expira_em,
-    COALESCE(
-        STRING_AGG(DISTINCT t.table_name || ':' || p.privilege_type, ', '),
-        'Sem permissões'
-    ) AS permissoes
-FROM
-    pg_roles r
-    LEFT JOIN information_schema.table_privileges p ON r.rolname = p.grantee
-    LEFT JOIN information_schema.tables t ON p.table_name = t.table_name
-WHERE
-    r.rolname NOT LIKE 'pg_%'
-    AND (t.table_schema = 'public' OR t.table_schema IS NULL)
-GROUP BY
-    r.rolname, r.rolsuper, r.rolcanlogin, r.rolconnlimit, r.rolvaliduntil
-ORDER BY
-    r.rolname;
-
--- Ver relatório
-SELECT * FROM vw_relatorio_permissoes;
-
--- Identificar usuários com permissões excessivas
-SELECT
-    grantee AS usuario_com_all_privileges
-FROM
-    information_schema.table_privileges
-WHERE
-    privilege_type = 'DELETE'
-    AND grantee NOT IN ('postgres', 'db_admin')
-    AND table_schema = 'public';
+-- 4. Forçar SSL (conexões criptografadas)
+-- ALTER USER auditor_financeiro WITH PASSWORD 'senha' CONNECTION LIMIT 10 ENCRYPTED PASSWORD 'senha_crypt';
 
 -- ============================================================================
 -- RESUMO DA ETAPA 3.6
--- ============================================================================
-/*
-USUÁRIOS CRIADOS:
-
-1. db_admin (Administrador)
-   - Permissões: Todas (exceto SUPERUSER)
-   - Uso: Gestão e manutenção do banco
-   - Limite: 5 conexões
-
-2. db_operador (Vendedor/Atendente)
-   - Permissões: Leitura ampla, escrita limitada
-   - Uso: Operação diária do sistema
-   - Limite: 20 conexões
-   - Restrições: Não pode DELETE, não altera estrutura
-
-3. db_auditor (Auditor)
-   - Permissões: Apenas leitura
-   - Uso: Fiscalização e compliance
-   - Limite: 3 conexões
-   - Acesso especial: tb_auditoria
-
-4. db_app (Aplicação)
-   - Permissões: Intermediárias
-   - Uso: Backend da aplicação
-   - Limite: 50 conexões (pool)
-
-RECURSOS IMPLEMENTADOS:
-✓ CREATE ROLE com configurações granulares
-✓ GRANT e REVOKE de permissões
-✓ Row Level Security (RLS)
-✓ Criptografia (pgcrypto)
-✓ Views de auditoria de permissões
-✓ Demonstração de bloqueios de acesso
-✓ Boas práticas documentadas
-
-PRINCÍPIOS APLICADOS:
-✓ Least Privilege
-✓ Separation of Duties
-✓ Defense in Depth
-✓ Auditability
-*/
+-- USUÁRIO 1: admin_agencia - Acesso total (ALL PRIVILEGES)
+-- USUÁRIO 2: operador_vendas - Leitura geral + Escrita limitada (reservas/pagamentos)
+-- USUÁRIO 3: auditor_financeiro - Somente leitura (SELECT) em tabelas específicas
+-- PRINCÍPIO: Least Privilege (Menor privilégio necessário)
+-- DEMONSTRADO: GRANT, REVOKE, bloqueios de acesso indevido
 -- ============================================================================
 
 SELECT 'Etapa 3.6 concluída! Segurança e controle de acesso implementados.' AS status;

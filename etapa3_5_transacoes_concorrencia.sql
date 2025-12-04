@@ -1,681 +1,217 @@
 -- ============================================================================
 -- ETAPA 3.5: TRANSAÇÕES E CONTROLE DE CONCORRÊNCIA
--- ============================================================================
--- Descrição: Demonstração de transações, locks e níveis de isolamento
--- Requisitos do projeto:
---   - Uso de BEGIN, COMMIT, ROLLBACK
---   - Demonstrar LOCKs (bloqueios)
---   - Criar 2 cenários de concorrência (duas sessões editando mesmo registro)
---   - Demonstrar níveis de isolamento (READ COMMITTED vs SERIALIZABLE)
---   - Explicar efeitos (dirty read, phantom read, etc.)
+-- Demonstração de BEGIN, COMMIT, ROLLBACK, LOCKS e níveis de isolamento
+-- Requisito: Criar 2 cenários de transações simulando concorrência
 -- ============================================================================
 
--- Conectar ao banco de dados
 \c agencia_turismo;
 
 -- ============================================================================
--- CONCEITOS FUNDAMENTAIS
+-- CENÁRIO 1: TRANSFERÊNCIA DE VALOR ENTRE RESERVAS (ATOMICIDADE)
+-- Objetivo: Demonstrar transação atômica com COMMIT e ROLLBACK
+-- Situação: Transferir desconto de uma reserva para outra (ou desfazer)
 -- ============================================================================
 
-/*
-PROPRIEDADES ACID DAS TRANSAÇÕES:
-
-A - ATOMICIDADE:
-    - Tudo ou nada: todas as operações são executadas ou nenhuma é
-    - Se houver erro, ROLLBACK desfaz todas as mudanças
-    - Garante consistência mesmo em falhas
-
-C - CONSISTÊNCIA:
-    - Banco vai de um estado válido para outro estado válido
-    - Constraints, triggers e regras são respeitados
-    - Dados mantêm integridade referencial
-
-I - ISOLAMENTO (ISOLATION):
-    - Transações concorrentes não interferem entre si
-    - Níveis de isolamento controlam visibilidade de mudanças
-    - Previne condições de corrida (race conditions)
-
-D - DURABILIDADE:
-    - Após COMMIT, dados persistem mesmo em falhas de sistema
-    - Garantia de gravação em disco
-    - Logs de transação (WAL - Write-Ahead Logging)
-
-NÍVEIS DE ISOLAMENTO (PostgreSQL):
-
-1. READ UNCOMMITTED (não implementado no PostgreSQL, trata como READ COMMITTED)
-   - Lê dados não commitados (dirty read)
-   - Menor isolamento, maior concorrência
-
-2. READ COMMITTED (padrão do PostgreSQL)
-   - Lê apenas dados commitados
-   - Cada query vê snapshot no momento da execução
-   - Previne dirty reads
-   - Permite non-repeatable reads e phantom reads
-
-3. REPEATABLE READ
-   - Snapshot da transação inteira (não por query)
-   - Previne dirty e non-repeatable reads
-   - Pode ter phantom reads em alguns SGBDs (PostgreSQL previne)
-
-4. SERIALIZABLE
-   - Isolamento total
-   - Transações executam como se fossem sequenciais
-   - Previne todos os problemas de concorrência
-   - Pode causar falhas por conflitos de serialização
-
-PROBLEMAS DE CONCORRÊNCIA:
-
-- Dirty Read: Ler dados não commitados de outra transação
-- Non-Repeatable Read: Mesma query retorna resultados diferentes
-- Phantom Read: Novas linhas aparecem entre queries
-- Lost Update: Update de uma transação sobrescreve outra
-*/
-
--- ============================================================================
--- CENÁRIO 1: TRANSAÇÃO BÁSICA COM COMMIT E ROLLBACK
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- Exemplo 1A: Transação com COMMIT (sucesso)
--- ----------------------------------------------------------------------------
--- Objetivo: Criar uma reserva e registrar pagamento atomicamente
--- Se qualquer operação falhar, desfazer tudo (ROLLBACK)
--- ----------------------------------------------------------------------------
-
-BEGIN;  -- Inicia a transação
-
-    -- Operação 1: Criar reserva
-    INSERT INTO tb_reservas (
-        id_cliente, id_pacote, id_funcionario,
-        numero_passageiros, valor_unitario,
-        desconto_percentual, valor_total,
-        status_reserva, observacoes
-    ) VALUES (
-        1, 5, 4,
-        2, 5200.00,
-        10.00, 9360.00,
-        'CONFIRMADA', 'Transação de teste - COMMIT'
-    );
-
-    -- Capturar ID da reserva criada
-    -- (em aplicação real, usaria RETURNING ou currval)
-
-    -- Operação 2: Registrar pagamento
-    INSERT INTO tb_pagamentos (
-        id_reserva, forma_pagamento,
-        numero_parcela, total_parcelas,
-        valor_parcela, status_pagamento
-    ) VALUES (
-        (SELECT MAX(id_reserva) FROM tb_reservas),
-        'PIX',
-        1, 1,
-        9360.00, 'PAGO'
-    );
-
-    -- Verificar dados antes do commit
-    SELECT 'Dados inseridos na transação:' AS status;
-    SELECT * FROM tb_reservas WHERE id_reserva = (SELECT MAX(id_reserva) FROM tb_reservas);
-
-COMMIT;  -- Confirma a transação (torna permanente)
-
-SELECT 'Transação commitada com sucesso!' AS status;
-
--- Limpar dados de teste
-DELETE FROM tb_pagamentos
-WHERE id_reserva = (SELECT MAX(id_reserva) FROM tb_reservas WHERE observacoes = 'Transação de teste - COMMIT');
-
-DELETE FROM tb_reservas
-WHERE observacoes = 'Transação de teste - COMMIT';
-
--- ----------------------------------------------------------------------------
--- Exemplo 1B: Transação com ROLLBACK (erro/cancelamento)
--- ----------------------------------------------------------------------------
--- Objetivo: Simular erro e desfazer todas as operações
--- ----------------------------------------------------------------------------
-
+-- Exemplo 1A: Transação bem-sucedida (COMMIT)
 BEGIN;
 
-    -- Operação 1: Inserir cliente
-    INSERT INTO tb_clientes (
-        nome_completo, cpf, data_nascimento, email, telefone
-    ) VALUES (
-        'Cliente Teste Rollback', '99999999999',
-        '1990-01-01', 'teste.rollback@test.com', '61999999999'
-    );
+-- Simular transferência de desconto entre reservas
+UPDATE tb_reservas
+SET desconto_percentual = 15.00,
+    valor_total = valor_unitario * numero_passageiros * (1 - 15.00 / 100.0)
+WHERE id_reserva = 1;
 
-    SELECT 'Cliente inserido (ainda não commitado)' AS status;
-    SELECT * FROM tb_clientes WHERE cpf = '99999999999';
+UPDATE tb_reservas
+SET desconto_percentual = 5.00,
+    valor_total = valor_unitario * numero_passageiros * (1 - 5.00 / 100.0)
+WHERE id_reserva = 2;
 
-    -- Simular erro ou decisão de cancelar
-    SELECT 'Decidindo cancelar operação...' AS status;
+-- Verificar alterações antes do COMMIT
+SELECT id_reserva, desconto_percentual, valor_total
+FROM tb_reservas
+WHERE id_reserva IN (1, 2);
 
-ROLLBACK;  -- Desfaz TODAS as operações da transação
+COMMIT; -- Confirma as alterações
 
-SELECT 'Transação cancelada! Verificando que cliente não existe:' AS status;
-SELECT COUNT(*) AS deve_ser_zero FROM tb_clientes WHERE cpf = '99999999999';
-
--- ============================================================================
--- CENÁRIO 2: SAVEPOINTS (Pontos de Salvamento)
--- ============================================================================
--- Objetivo: Rollback parcial dentro de uma transação
--- Útil para desfazer apenas parte das operações
--- ============================================================================
-
+-- Exemplo 1B: Transação com erro (ROLLBACK)
 BEGIN;
 
-    -- Operação 1: Inserir destino
-    INSERT INTO tb_destinos (
-        nome_destino, pais, cidade, categoria,
-        clima, idioma_principal, moeda_local
-    ) VALUES (
-        'Teste Savepoint 1', 'Brasil', 'Brasília', 'URBANO',
-        'Tropical', 'Português', 'Real'
-    );
+UPDATE tb_reservas
+SET desconto_percentual = 20.00,
+    valor_total = valor_unitario * numero_passageiros * (1 - 20.00 / 100.0)
+WHERE id_reserva = 3;
 
-    SAVEPOINT sp_apos_destino;  -- Criar ponto de salvamento
+-- Simular erro: tentar inserir desconto inválido
+-- Esta operação falhará devido a constraint
+UPDATE tb_reservas
+SET desconto_percentual = 150.00  -- INVÁLIDO: > 100%
+WHERE id_reserva = 4;
 
-    -- Operação 2: Inserir outro destino
-    INSERT INTO tb_destinos (
-        nome_destino, pais, cidade, categoria,
-        clima, idioma_principal, moeda_local
-    ) VALUES (
-        'Teste Savepoint 2', 'Brasil', 'São Paulo', 'URBANO',
-        'Subtropical', 'Português', 'Real'
-    );
+ROLLBACK; -- Desfaz TODAS as alterações (incluindo a primeira UPDATE)
 
-    SELECT 'Dois destinos inseridos' AS status;
-    SELECT nome_destino FROM tb_destinos WHERE nome_destino LIKE 'Teste Savepoint%';
-
-    -- Desfazer apenas a segunda operação
-    ROLLBACK TO SAVEPOINT sp_apos_destino;
-
-    SELECT 'Segundo destino removido, primeiro mantido' AS status;
-    SELECT nome_destino FROM tb_destinos WHERE nome_destino LIKE 'Teste Savepoint%';
-
-COMMIT;  -- Confirma apenas o primeiro destino
-
--- Limpar
-DELETE FROM tb_destinos WHERE nome_destino LIKE 'Teste Savepoint%';
+-- Verificar que nenhuma alteração foi aplicada
+SELECT id_reserva, desconto_percentual, valor_total
+FROM tb_reservas
+WHERE id_reserva IN (3, 4);
 
 -- ============================================================================
--- CENÁRIO 3: CONTROLE DE CONCORRÊNCIA - LOCKS
+-- CENÁRIO 2: CONCORRÊNCIA COM LOCKS E NÍVEIS DE ISOLAMENTO
+-- Objetivo: Demonstrar comportamento de múltiplas sessões editando mesmo registro
+-- Conceitos: READ COMMITTED vs SERIALIZABLE, dirty reads, phantom reads
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- Tipos de LOCKs no PostgreSQL:
--- ----------------------------------------------------------------------------
-/*
-1. ROW LEVEL LOCKS (Bloqueios de Linha):
-   - FOR UPDATE: Bloqueia linhas para atualização
-   - FOR NO KEY UPDATE: Permite UPDATE em colunas não-chave
-   - FOR SHARE: Permite leitura, impede UPDATE/DELETE
-   - FOR KEY SHARE: Menos restritivo que FOR SHARE
-
-2. TABLE LEVEL LOCKS (Bloqueios de Tabela):
-   - ACCESS SHARE: Gerado por SELECT
-   - ROW SHARE: Gerado por SELECT FOR UPDATE
-   - ROW EXCLUSIVE: Gerado por INSERT, UPDATE, DELETE
-   - SHARE: LOCK TABLE ... IN SHARE MODE
-   - EXCLUSIVE: LOCK TABLE ... IN EXCLUSIVE MODE
-   - ACCESS EXCLUSIVE: ALTER TABLE, DROP TABLE, VACUUM FULL
-
-3. ADVISORY LOCKS (Bloqueios Consultivos):
-   - Controlados pela aplicação
-   - pg_advisory_lock(), pg_advisory_unlock()
-*/
-
--- ----------------------------------------------------------------------------
--- Exemplo 3A: SELECT FOR UPDATE (Pessimistic Locking)
--- ----------------------------------------------------------------------------
--- Objetivo: Bloquear linha para garantir que ninguém mais altere
--- Cenário: Decrementar vagas de pacote (evitar overbooking)
--- ----------------------------------------------------------------------------
-
--- SESSÃO 1 (simulação):
+-- SESSÃO 1: Atualizar reserva com lock explícito
+-- Execute este bloco em uma sessão/terminal
 BEGIN;
 
-    -- Buscar pacote e bloquear linha para atualização
-    SELECT
-        id_pacote,
-        nome_pacote,
-        vagas_disponiveis
-    FROM
-        tb_pacotes_turisticos
-    WHERE
-        id_pacote = 1
-    FOR UPDATE;  -- BLOQUEIA a linha (outras sessões esperam)
+SELECT id_reserva, status_reserva, valor_total
+FROM tb_reservas
+WHERE id_reserva = 5
+FOR UPDATE;  -- Lock explícito: outras sessões aguardam
 
-    -- Aqui faríamos validações complexas...
-    -- Outras transações que tentarem FOR UPDATE nesta linha AGUARDAM
+UPDATE tb_reservas
+SET status_reserva = 'FINALIZADA'
+WHERE id_reserva = 5;
 
-    -- Decrementar vagas
-    UPDATE tb_pacotes_turisticos
-    SET vagas_disponiveis = vagas_disponiveis - 2
-    WHERE id_pacote = 1;
-
-COMMIT;  -- Libera o lock
-
-SELECT 'Lock liberado' AS status;
-
--- Reverter alteração
-UPDATE tb_pacotes_turisticos
-SET vagas_disponiveis = vagas_disponiveis + 2
-WHERE id_pacote = 1;
-
--- ----------------------------------------------------------------------------
--- Exemplo 3B: LOCK TABLE (Table-Level Lock)
--- ----------------------------------------------------------------------------
--- Objetivo: Bloquear tabela inteira para operações em lote
--- Uso: Manutenção, migração de dados, operações batch
--- ----------------------------------------------------------------------------
-
-BEGIN;
-
-    -- Bloquear tabela em modo SHARE (permite leitura, impede escrita)
-    LOCK TABLE tb_destinos IN SHARE MODE;
-
-    SELECT 'Tabela bloqueada para escrita' AS status;
-
-    -- Fazer análise ou validação
-    SELECT COUNT(*) FROM tb_destinos;
-
-    -- Outras transações podem LER, mas não podem INSERT/UPDATE/DELETE
-
-COMMIT;  -- Libera o lock
-
--- ============================================================================
--- CENÁRIO 4: SIMULAÇÃO DE CONCORRÊNCIA (Duas Sessões)
--- ============================================================================
-
--- ----------------------------------------------------------------------------
--- Cenário 4A: Lost Update Problem
--- ----------------------------------------------------------------------------
--- Problema: Duas transações atualizam mesmo registro, uma sobrescreve a outra
--- Solução: SELECT FOR UPDATE
--- ----------------------------------------------------------------------------
-
-/*
-INSTRUÇÕES PARA TESTE MANUAL:
-
-Abrir duas janelas de terminal PostgreSQL (psql) simultaneamente.
-
-SESSÃO 1:                                SESSÃO 2:
------------------------------------------------------------------------
-BEGIN;
-SELECT vagas_disponiveis
-FROM tb_pacotes_turisticos
-WHERE id_pacote = 1;                     BEGIN;
--- Resultado: 20 vagas                   SELECT vagas_disponiveis
-                                         FROM tb_pacotes_turisticos
-                                         WHERE id_pacote = 1;
-                                         -- Resultado: 20 vagas
-
-UPDATE tb_pacotes_turisticos             UPDATE tb_pacotes_turisticos
-SET vagas_disponiveis = 18               SET vagas_disponiveis = 15
-WHERE id_pacote = 1;                     WHERE id_pacote = 1;
--- Define 18 vagas                       -- AGUARDA (bloqueado!)
-
-COMMIT;
--- Sessão 1 commitou                     -- Agora executa e define 15
-                                         COMMIT;
-
--- RESULTADO: Vagas = 15 (perdeu update da Sessão 1!)
-
-SOLUÇÃO COM FOR UPDATE:
-
-SESSÃO 1:                                SESSÃO 2:
------------------------------------------------------------------------
-BEGIN;
-SELECT vagas_disponiveis
-FROM tb_pacotes_turisticos
-WHERE id_pacote = 1
-FOR UPDATE;                              BEGIN;
--- Bloqueia a linha!                     SELECT vagas_disponiveis
-                                         FROM tb_pacotes_turisticos
-                                         WHERE id_pacote = 1
-                                         FOR UPDATE;
-                                         -- AGUARDA lock da Sessão 1
-
-UPDATE tb_pacotes_turisticos
-SET vagas_disponiveis = 18
-WHERE id_pacote = 1;
-COMMIT;
--- Libera lock                           -- Agora pega lock e vê valor 18
-                                         -- Pode decidir baseado no novo valor
-                                         COMMIT;
-
--- RESULTADO: Consistente!
-*/
-
--- ----------------------------------------------------------------------------
--- Cenário 4B: Deadlock (Impasse)
--- ----------------------------------------------------------------------------
--- Problema: Duas transações esperam uma pela outra (ciclo)
--- PostgreSQL detecta e cancela uma automaticamente
--- ----------------------------------------------------------------------------
-
-/*
-SIMULAÇÃO DE DEADLOCK:
-
-SESSÃO 1:                                SESSÃO 2:
------------------------------------------------------------------------
-BEGIN;
-UPDATE tb_pacotes_turisticos             BEGIN;
-SET status = 'DISPONIVEL'                UPDATE tb_destinos
-WHERE id_pacote = 1;                     SET status = 'ATIVO'
--- Bloqueia pacote 1                     WHERE id_destino = 1;
-                                         -- Bloqueia destino 1
-
-UPDATE tb_destinos                       UPDATE tb_pacotes_turisticos
-SET status = 'ATIVO'                     SET status = 'DISPONIVEL'
-WHERE id_destino = 1;                    WHERE id_pacote = 1;
--- AGUARDA Sessão 2                      -- AGUARDA Sessão 1
-                                         -- DEADLOCK DETECTADO!
-
--- PostgreSQL cancela uma transação:
--- ERROR: deadlock detected
-
-ROLLBACK;                                ROLLBACK;
-
-PREVENÇÃO DE DEADLOCKS:
-1. Sempre acessar recursos na mesma ordem
-2. Manter transações curtas
-3. Usar timeouts (lock_timeout)
-4. Retry logic na aplicação
-*/
-
--- Configurar timeout para locks (prevenir espera infinita)
-SET lock_timeout = '5s';  -- Cancelar após 5 segundos esperando lock
-
--- ============================================================================
--- CENÁRIO 5: NÍVEIS DE ISOLAMENTO
--- ============================================================================
-
--- Verificar nível de isolamento atual
-SHOW transaction_isolation;
-
--- ----------------------------------------------------------------------------
--- Exemplo 5A: READ COMMITTED (Padrão do PostgreSQL)
--- ----------------------------------------------------------------------------
--- Comportamento: Cada SELECT vê dados commitados até aquele momento
--- ----------------------------------------------------------------------------
-
-/*
-SESSÃO 1:                                SESSÃO 2:
------------------------------------------------------------------------
-BEGIN;
-SELECT preco_total
-FROM tb_pacotes_turisticos
-WHERE id_pacote = 1;                     BEGIN;
--- Resultado: R$ 7500.00                 UPDATE tb_pacotes_turisticos
-                                         SET preco_total = 8000.00
-                                         WHERE id_pacote = 1;
-                                         COMMIT;
-                                         -- Mudança commitada
-
-SELECT preco_total
-FROM tb_pacotes_turisticos
-WHERE id_pacote = 1;
--- Resultado: R$ 8000.00 (VÊ A MUDANÇA!)
--- NON-REPEATABLE READ!
+-- Aguardar 10 segundos antes de commit (simula processamento)
+SELECT pg_sleep(10);
 
 COMMIT;
 
-EFEITO: Mesma query na mesma transação retornou valores diferentes
-NÍVEL: READ COMMITTED permite non-repeatable reads
+-- SESSÃO 2: Tentar atualizar a mesma reserva (executar em paralelo)
+-- Este bloco ficará BLOQUEADO até a SESSÃO 1 fazer COMMIT
+/*
+BEGIN;
+
+UPDATE tb_reservas
+SET observacoes = 'Tentativa de update concorrente'
+WHERE id_reserva = 5;
+
+COMMIT;
 */
 
--- ----------------------------------------------------------------------------
--- Exemplo 5B: REPEATABLE READ
--- ----------------------------------------------------------------------------
--- Comportamento: Snapshot da transação inteira (consistência)
--- ----------------------------------------------------------------------------
+-- ============================================================================
+-- DEMONSTRAÇÃO DE NÍVEIS DE ISOLAMENTO
+-- ============================================================================
 
+-- Nível 1: READ COMMITTED (padrão no PostgreSQL)
+-- Permite dirty reads: sessões veem commits de outras sessões imediatamente
+BEGIN TRANSACTION ISOLATION LEVEL READ COMMITTED;
+
+SELECT status_reserva FROM tb_reservas WHERE id_reserva = 6;
+-- Se outra sessão alterar e commitar, a próxima leitura verá a mudança
+
+COMMIT;
+
+-- Nível 2: REPEATABLE READ
+-- Garante leituras consistentes dentro da transação (snapshot no início)
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 
-    SELECT preco_total
-    FROM tb_pacotes_turisticos
-    WHERE id_pacote = 1;
-    -- Resultado: R$ 7500.00
-
-    -- Mesmo que outra sessão altere e commite, esta transação
-    -- continuará vendo R$ 7500.00 (snapshot inicial)
-
-    SELECT preco_total
-    FROM tb_pacotes_turisticos
-    WHERE id_pacote = 1;
-    -- Resultado: R$ 7500.00 (MESMO VALOR!)
+SELECT status_reserva FROM tb_reservas WHERE id_reserva = 7;
+-- Mesmo que outra sessão altere e commite, esta sessão verá o valor original
 
 COMMIT;
 
--- Agora vê a mudança
-SELECT preco_total FROM tb_pacotes_turisticos WHERE id_pacote = 1;
-
-/*
-COMPARAÇÃO:
-
-READ COMMITTED:
-- Cada query vê últimos dados commitados
-- Permite non-repeatable reads
-- Maior concorrência
-- Padrão do PostgreSQL
-
-REPEATABLE READ:
-- Snapshot no início da transação
-- Consistência garantida
-- Pode falhar em conflitos de write
-- Phantom reads prevenidos no PostgreSQL
-
-SERIALIZABLE:
-- Isolamento total
-- Como se transações fossem sequenciais
-- Falha com serialization errors
-- Menor concorrência
-*/
-
--- ----------------------------------------------------------------------------
--- Exemplo 5C: SERIALIZABLE
--- ----------------------------------------------------------------------------
--- Mais alto nível de isolamento
--- Pode causar falhas de serialização
--- ----------------------------------------------------------------------------
-
+-- Nível 3: SERIALIZABLE (maior isolamento)
+-- Previne phantom reads e garante serialização completa
 BEGIN TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 
-    -- Qualquer leitura/escrita pode conflitar
-    SELECT SUM(valor_total)
-    FROM tb_reservas
-    WHERE id_pacote = 1;
-
-    -- Se outra transação modificar estas linhas e commitar,
-    -- esta transação FALHARÁ no commit com erro:
-    -- ERROR: could not serialize access due to concurrent update
+SELECT COUNT(*) FROM tb_reservas WHERE status_reserva = 'CONFIRMADA';
+-- Outras sessões que inserem/deletam reservas não afetam esta contagem
 
 COMMIT;
 
 -- ============================================================================
--- CENÁRIO 6: DEMONSTRAÇÃO PRÁTICA - SISTEMA DE RESERVA
+-- SAVEPOINTS: CHECKPOINTS DENTRO DE TRANSAÇÕES
+-- Objetivo: Permitir rollback parcial sem desfazer toda a transação
 -- ============================================================================
 
--- ----------------------------------------------------------------------------
--- Função: Reservar pacote com controle de concorrência
--- ----------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION fn_reservar_pacote_seguro(
-    p_id_cliente INTEGER,
-    p_id_pacote INTEGER,
-    p_numero_passageiros INTEGER,
-    OUT o_sucesso BOOLEAN,
-    OUT o_mensagem TEXT
-)
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    v_vagas_disponiveis INTEGER;
-    v_vagas_vendidas INTEGER;
-    v_vagas_restantes INTEGER;
-BEGIN
-    -- Iniciar transação com REPEATABLE READ
-    -- (função já executa dentro de transação)
+BEGIN;
 
-    -- LOCK pessimista: bloquear pacote para atualização
-    SELECT vagas_disponiveis
-    INTO v_vagas_disponiveis
-    FROM tb_pacotes_turisticos
-    WHERE id_pacote = p_id_pacote
-    FOR UPDATE;  -- Bloqueia linha (outras sessões esperam)
+-- Checkpoint 1
+INSERT INTO tb_reservas (id_cliente, id_pacote, id_funcionario, numero_passageiros, valor_unitario, desconto_percentual, valor_total, status_reserva)
+VALUES (1, 3, 4, 2, 4200.00, 5.00, 7980.00, 'CONFIRMADA');
 
-    IF NOT FOUND THEN
-        o_sucesso := FALSE;
-        o_mensagem := 'Pacote não encontrado';
-        RETURN;
-    END IF;
+SAVEPOINT checkpoint1;
 
-    -- Calcular vagas vendidas
-    SELECT COALESCE(SUM(numero_passageiros), 0)
-    INTO v_vagas_vendidas
-    FROM tb_reservas
-    WHERE id_pacote = p_id_pacote
-    AND status_reserva IN ('CONFIRMADA', 'PENDENTE')
-    FOR UPDATE;  -- Bloqueia reservas também
+-- Checkpoint 2
+UPDATE tb_reservas SET status_reserva = 'PENDENTE' WHERE id_reserva = 8;
 
-    v_vagas_restantes := v_vagas_disponiveis - v_vagas_vendidas;
+SAVEPOINT checkpoint2;
 
-    -- Validar disponibilidade
-    IF p_numero_passageiros > v_vagas_restantes THEN
-        o_sucesso := FALSE;
-        o_mensagem := 'Apenas ' || v_vagas_restantes || ' vaga(s) disponível(is)';
-        RETURN;
-    END IF;
+-- Tentativa de operação que pode falhar
+UPDATE tb_reservas SET desconto_percentual = 200.00 WHERE id_reserva = 9;  -- INVÁLIDO
 
-    -- Criar reserva (protegido por locks)
-    INSERT INTO tb_reservas (
-        id_cliente, id_pacote, id_funcionario,
-        numero_passageiros, valor_unitario,
-        desconto_percentual, valor_total, status_reserva
-    )
-    SELECT
-        p_id_cliente,
-        p_id_pacote,
-        4,  -- Funcionário padrão
-        p_numero_passageiros,
-        preco_total,
-        0,
-        preco_total * p_numero_passageiros,
-        'CONFIRMADA'
-    FROM tb_pacotes_turisticos
-    WHERE id_pacote = p_id_pacote;
+-- Rollback apenas até checkpoint2 (mantém INSERT e UPDATE anteriores)
+ROLLBACK TO SAVEPOINT checkpoint2;
 
-    o_sucesso := TRUE;
-    o_mensagem := 'Reserva criada com sucesso! Vagas restantes: ' ||
-                  (v_vagas_restantes - p_numero_passageiros);
-
-EXCEPTION
-    WHEN OTHERS THEN
-        o_sucesso := FALSE;
-        o_mensagem := 'Erro: ' || SQLERRM;
-END;
-$$;
-
--- Testar função
-SELECT * FROM fn_reservar_pacote_seguro(1, 1, 2);
+COMMIT;  -- Confirma INSERT e primeira UPDATE
 
 -- ============================================================================
--- MONITORAMENTO DE LOCKS E TRANSAÇÕES ATIVAS
+-- DEADLOCK: DETECÇÃO E PREVENÇÃO
+-- Situação: Duas sessões travam esperando recursos uma da outra
 -- ============================================================================
 
--- Ver transações ativas e locks
+-- SESSÃO A (executar em um terminal):
+/*
+BEGIN;
+UPDATE tb_reservas SET status_reserva = 'PENDENTE' WHERE id_reserva = 10;
+SELECT pg_sleep(5);
+UPDATE tb_reservas SET status_reserva = 'PENDENTE' WHERE id_reserva = 11;  -- Aguarda sessão B
+COMMIT;
+*/
+
+-- SESSÃO B (executar em outro terminal SIMULTANEAMENTE):
+/*
+BEGIN;
+UPDATE tb_reservas SET status_reserva = 'PENDENTE' WHERE id_reserva = 11;
+SELECT pg_sleep(5);
+UPDATE tb_reservas SET status_reserva = 'PENDENTE' WHERE id_reserva = 10;  -- DEADLOCK!
+COMMIT;
+*/
+
+-- PostgreSQL detecta deadlock automaticamente e aborta uma das transações
+
+-- ============================================================================
+-- MONITORAMENTO DE LOCKS ATIVOS
+-- ============================================================================
+
+-- Visualizar locks atualmente ativos no banco
 SELECT
-    pid,
-    usename,
-    state,
-    query,
-    query_start,
-    state_change,
-    wait_event_type,
-    wait_event
-FROM
-    pg_stat_activity
-WHERE
-    datname = 'agencia_turismo'
-    AND state != 'idle'
-ORDER BY
-    query_start;
+    locktype, database, relation::regclass AS tabela,
+    mode AS tipo_lock, granted AS concedido,
+    pid AS process_id
+FROM pg_locks
+WHERE database = (SELECT oid FROM pg_database WHERE datname = 'agencia_turismo')
+AND relation IS NOT NULL
+ORDER BY relation;
 
--- Ver locks ativos
+-- Identificar transações bloqueadas
 SELECT
-    locktype,
-    database,
-    relation::regclass AS tabela,
-    page,
-    tuple,
-    transactionid,
-    pid,
-    mode,
-    granted
-FROM
-    pg_locks
-WHERE
-    NOT granted  -- Locks aguardando
-ORDER BY
-    pid;
-
--- Matar transação travada (emergência)
--- SELECT pg_terminate_backend(pid);
+    blocked_locks.pid AS bloqueado_pid,
+    blocked_activity.usename AS bloqueado_usuario,
+    blocking_locks.pid AS bloqueante_pid,
+    blocking_activity.usename AS bloqueante_usuario,
+    blocked_activity.query AS consulta_bloqueada,
+    blocking_activity.query AS consulta_bloqueante
+FROM pg_catalog.pg_locks blocked_locks
+JOIN pg_catalog.pg_stat_activity blocked_activity ON blocked_activity.pid = blocked_locks.pid
+JOIN pg_catalog.pg_locks blocking_locks ON blocking_locks.locktype = blocked_locks.locktype
+    AND blocking_locks.database IS NOT DISTINCT FROM blocked_locks.database
+    AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation
+    AND blocking_locks.pid != blocked_locks.pid
+JOIN pg_catalog.pg_stat_activity blocking_activity ON blocking_activity.pid = blocking_locks.pid
+WHERE NOT blocked_locks.granted;
 
 -- ============================================================================
 -- RESUMO DA ETAPA 3.5
--- ============================================================================
-/*
-CONCEITOS DEMONSTRADOS:
-
-1. TRANSAÇÕES:
-   ✓ BEGIN / COMMIT / ROLLBACK
-   ✓ Propriedades ACID
-   ✓ SAVEPOINT (rollback parcial)
-   ✓ Atomicidade de operações
-
-2. LOCKS:
-   ✓ SELECT FOR UPDATE (pessimistic locking)
-   ✓ LOCK TABLE (table-level locks)
-   ✓ Row-level locks vs table-level locks
-   ✓ Advisory locks
-
-3. NÍVEIS DE ISOLAMENTO:
-   ✓ READ COMMITTED (padrão)
-   ✓ REPEATABLE READ
-   ✓ SERIALIZABLE
-   ✓ Trade-offs de cada nível
-
-4. PROBLEMAS DE CONCORRÊNCIA:
-   ✓ Lost Update
-   ✓ Non-Repeatable Read
-   ✓ Phantom Read
-   ✓ Dirty Read
-   ✓ Deadlock
-
-5. SOLUÇÕES:
-   ✓ Locks pessimistas (FOR UPDATE)
-   ✓ Locks otimistas (versioning)
-   ✓ Retry logic
-   ✓ Timeouts
-   ✓ Ordem consistente de acesso
-
-6. BOAS PRÁTICAS:
-   - Manter transações curtas
-   - Acessar recursos na mesma ordem
-   - Usar níveis de isolamento adequados
-   - Implementar retry logic
-   - Monitorar locks e deadlocks
-   - Configurar timeouts
-   - Evitar user input dentro de transações
-
-FERRAMENTAS:
-- pg_stat_activity: Monitorar transações
-- pg_locks: Ver locks ativos
-- pg_terminate_backend(): Matar processos
-- lock_timeout: Timeout automático
-- deadlock_timeout: Detecção de deadlocks
-*/
+-- CONCEITOS DEMONSTRADOS:
+-- - ATOMICIDADE: BEGIN, COMMIT, ROLLBACK
+-- - SAVEPOINTS: Rollback parcial
+-- - LOCKS: FOR UPDATE, comportamento de concorrência
+-- - ISOLAMENTO: READ COMMITTED, REPEATABLE READ, SERIALIZABLE
+-- - DEADLOCK: Detecção automática pelo PostgreSQL
+-- - MONITORAMENTO: pg_locks, transações bloqueadas
 -- ============================================================================
 
-SELECT 'Etapa 3.5 concluída! Transações e concorrência demonstradas.' AS status;
+SELECT 'Etapa 3.5 concluída! Transações e concorrência demonstrados.' AS status;
