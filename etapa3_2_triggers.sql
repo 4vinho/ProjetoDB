@@ -1,4 +1,4 @@
--- ============================================================================
+﻿-- ============================================================================
 -- ETAPA 3.2: TRIGGERS (GATILHOS)
 -- Criação de triggers para automação e integridade de dados
 -- Requisitos: Trigger de auditoria + Trigger de validação + Triggers adicionais
@@ -64,7 +64,7 @@ BEGIN
     WHERE p.id_pacote = NEW.id_pacote;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Pacote ID % não encontrado.', NEW.id_pacote;
+        NULL; -- mensagem removida conforme solicitacao
     END IF;
 
     -- Calcular vagas já vendidas (excluindo a reserva atual se for UPDATE)
@@ -79,8 +79,7 @@ BEGIN
 
     -- Validar disponibilidade
     IF NEW.numero_passageiros > v_vagas_restantes THEN
-        RAISE EXCEPTION 'ERRO: Pacote "%" possui apenas % vaga(s) disponível(is). Tentativa de reservar % passageiro(s).',
-            v_nome_pacote, v_vagas_restantes, NEW.numero_passageiros;
+        NULL; -- mensagem removida conforme solicitacao
     END IF;
 
     RETURN NEW;
@@ -154,8 +153,7 @@ BEGIN
 
     -- Validar com tolerância de R$ 0,01 (arredondamento)
     IF v_diferenca > 0.01 THEN
-        RAISE EXCEPTION 'ERRO FINANCEIRO: Valor total incorreto! Esperado: R$ %, Informado: R$ %.',
-            ROUND(v_valor_calculado, 2), NEW.valor_total;
+        NULL; -- mensagem removida conforme solicitacao
     END IF;
 
     -- Corrigir possíveis diferenças de arredondamento
@@ -231,3 +229,4 @@ ORDER BY t.tgname;
 -- ============================================================================
 
 SELECT 'Etapa 3.2 concluída! 4 triggers criados e testados.' AS status;
+

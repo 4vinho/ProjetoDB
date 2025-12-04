@@ -37,11 +37,6 @@ DECLARE
 BEGIN
     v_inicio := clock_timestamp();
 
-    RAISE NOTICE '+=========================================================+';
-    RAISE NOTICE '|  INICIANDO POPULACAO MASSIVA DE DADOS                  |';
-    RAISE NOTICE '|  META: MILHOES DE REGISTROS EM TODAS AS TABELAS!       |';
-    RAISE NOTICE '+=========================================================+';
-    RAISE NOTICE '';
 
     -- Desabilitar triggers temporariamente para performance
     SET session_replication_role = replica;
@@ -49,9 +44,6 @@ BEGIN
     -- ========================================================================
     -- 1. TB_CLIENTES: 5 MILHOES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '+------------------------------------------------------+';
-    RAISE NOTICE '| [1/10] Populando tb_clientes (5 MILHOES)...         |';
-    RAISE NOTICE '+------------------------------------------------------+';
 
     FOR batch IN 0..49 LOOP
         INSERT INTO tb_clientes (nome_completo, cpf, data_nascimento, email, telefone, endereco, cidade, estado, cep)
@@ -68,19 +60,13 @@ BEGIN
             LPAD((10000000 + (random() * 89999999)::INTEGER)::TEXT, 8, '0')
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  > Progresso: % / 5.000.000 (%%) concluido', (batch + 1) * v_batch_size, ((batch + 1) * 2)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 5000000;
-    RAISE NOTICE '  OK tb_clientes: 5.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 2. TB_FUNCIONARIOS: 2 MILHOES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '+------------------------------------------------------+';
-    RAISE NOTICE '| [2/10] Populando tb_funcionarios (2 MILHOES)...     |';
-    RAISE NOTICE '+------------------------------------------------------+';
 
     FOR batch IN 0..19 LOOP
         INSERT INTO tb_funcionarios (nome_completo, cpf, email_corporativo, telefone, cargo, salario, data_admissao, status)
@@ -96,19 +82,13 @@ BEGIN
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'FERIAS', 'AFASTADO'])[floor(random() * 7 + 1)]
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  > Progresso: % / 2.000.000 (%%) concluido', (batch + 1) * v_batch_size, ((batch + 1) * 5)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 2000000;
-    RAISE NOTICE '  OK tb_funcionarios: 2.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 3. TB_DESTINOS: 1 MILHAO DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '+------------------------------------------------------+';
-    RAISE NOTICE '| [3/10] Populando tb_destinos (1 MILHAO)...          |';
-    RAISE NOTICE '+------------------------------------------------------+';
 
     FOR batch IN 0..9 LOOP
         INSERT INTO tb_destinos (nome_destino, pais, estado, cidade, descricao, categoria, clima, idioma_principal, moeda_local, status)
@@ -126,19 +106,13 @@ BEGIN
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'INATIVO'])[floor(random() * 5 + 1)]
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  ► Progresso: % / 1.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 1000000;
-    RAISE NOTICE '  ✓ tb_destinos: 1.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 4. TB_HOTEIS: 3 MILHÕES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [4/10] Populando tb_hoteis (3 MILHÕES)...          │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
 
     FOR batch IN 0..29 LOOP
         INSERT INTO tb_hoteis (id_destino, nome_hotel, endereco, classificacao_estrelas, descricao, comodidades, valor_diaria_minima, telefone, email, status)
@@ -156,19 +130,13 @@ BEGIN
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'INATIVO'])[floor(random() * 5 + 1)]
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  ► Progresso: % / 3.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10 / 3)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 3000000;
-    RAISE NOTICE '  ✓ tb_hoteis: 3.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 5. TB_TRANSPORTES: 1 MILHÃO DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [5/10] Populando tb_transportes (1 MILHÃO)...      │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
 
     FOR batch IN 0..9 LOOP
         INSERT INTO tb_transportes (tipo_transporte, empresa_parceira, modelo, capacidade_passageiros, classe, preco_base, status)
@@ -182,19 +150,13 @@ BEGIN
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'MANUTENCAO'])[floor(random() * 5 + 1)]
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  ► Progresso: % / 1.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 1000000;
-    RAISE NOTICE '  ✓ tb_transportes: 1.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 6. TB_PACOTES_TURISTICOS: 4 MILHÕES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [6/10] Populando tb_pacotes_turisticos (4 MILHÕES).│';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
 
     FOR batch IN 0..39 LOOP
         INSERT INTO tb_pacotes_turisticos (nome_pacote, id_destino, id_hotel, id_transporte, descricao_completa, duracao_dias, data_inicio, data_fim, preco_total, vagas_disponiveis, regime_alimentar, incluso, nao_incluso, status)
@@ -216,20 +178,13 @@ BEGIN
             (ARRAY['DISPONIVEL', 'DISPONIVEL', 'DISPONIVEL', 'DISPONIVEL', 'ESGOTADO', 'CANCELADO'])[floor(random() * 6 + 1)]
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  ► Progresso: % / 4.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10 / 4)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 4000000;
-    RAISE NOTICE '  ✓ tb_pacotes_turisticos: 4.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 7. TB_RESERVAS: 10 MILHÕES DE REGISTROS (MAIOR TABELA)
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [7/10] Populando tb_reservas (10 MILHÕES)...       │';
-    RAISE NOTICE '│        ⚠️  MAIOR TABELA - Pode demorar mais...      │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
 
     FOR batch IN 0..99 LOOP
         INSERT INTO tb_reservas (id_cliente, id_pacote, id_funcionario, numero_passageiros, valor_unitario, desconto_percentual, valor_total, observacoes, status_reserva, data_reserva)
@@ -246,20 +201,13 @@ BEGIN
             CURRENT_TIMESTAMP - (random() * 730 ||' days')::INTERVAL
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  ► Progresso: % / 10.000.000 (%%) concluído', (batch + 1) * v_batch_size, (batch + 1)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 10000000;
-    RAISE NOTICE '  ✓ tb_reservas: 10.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 8. TB_PAGAMENTOS: 15 MILHÕES DE REGISTROS (MÚLTIPLAS PARCELAS)
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [8/10] Populando tb_pagamentos (15 MILHÕES)...     │';
-    RAISE NOTICE '│        ⚠️  SEGUNDA MAIOR TABELA - Aguarde...        │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
 
     FOR batch IN 0..149 LOOP
         INSERT INTO tb_pagamentos (id_reserva, forma_pagamento, numero_parcela, total_parcelas, valor_parcela, data_vencimento, status_pagamento, numero_transacao, data_pagamento)
@@ -276,20 +224,14 @@ BEGIN
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         IF batch % 10 = 9 THEN
-            RAISE NOTICE '  ► Progresso: % / 15.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 100 / 150)::INTEGER;
         END IF;
     END LOOP;
 
     v_total_registros := v_total_registros + 15000000;
-    RAISE NOTICE '  ✓ tb_pagamentos: 15.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 9. TB_AVALIACOES: 5 MILHÕES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [9/10] Populando tb_avaliacoes (5 MILHÕES)...      │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
 
     FOR batch IN 0..49 LOOP
         INSERT INTO tb_avaliacoes (id_cliente, id_pacote, nota, comentario, data_avaliacao)
@@ -302,19 +244,13 @@ BEGIN
         FROM generate_series(1, v_batch_size) AS seq(seq_idx)
         ON CONFLICT (id_cliente, id_pacote) DO NOTHING;
 
-        RAISE NOTICE '  ► Progresso: % / 5.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 2)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 5000000;
-    RAISE NOTICE '  ✓ tb_avaliacoes: ~5.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- ========================================================================
     -- 10. TB_AUDITORIA: 2 MILHÕES DE REGISTROS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ [10/10] Populando tb_auditoria (2 MILHÕES)...      │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
 
     FOR batch IN 0..19 LOOP
         INSERT INTO tb_auditoria (tabela_afetada, operacao, usuario_db, dados_antigos, dados_novos, id_registro_afetado, observacao, data_hora)
@@ -329,12 +265,9 @@ BEGIN
             CURRENT_TIMESTAMP - (random() * 365 ||' days')::INTERVAL
         FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
-        RAISE NOTICE '  ► Progresso: % / 2.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 5)::INTEGER;
     END LOOP;
 
     v_total_registros := v_total_registros + 2000000;
-    RAISE NOTICE '  ✓ tb_auditoria: 2.000.000 registros inseridos!';
-    RAISE NOTICE '';
 
     -- Reabilitar triggers
     SET session_replication_role = DEFAULT;
@@ -342,41 +275,17 @@ BEGIN
     -- ========================================================================
     -- FINALIZAÇÃO E ESTATÍSTICAS
     -- ========================================================================
-    RAISE NOTICE '┌─────────────────────────────────────────────────────┐';
-    RAISE NOTICE '│ Atualizando estatísticas do banco de dados...      │';
-    RAISE NOTICE '└─────────────────────────────────────────────────────┘';
     ANALYZE;
 
     v_fim := clock_timestamp();
     v_duracao := v_fim - v_inicio;
 
-    RAISE NOTICE '';
-    RAISE NOTICE '╔════════════════════════════════════════════════════════╗';
-    RAISE NOTICE '║         POPULAÇÃO MASSIVA CONCLUÍDA!                  ║';
-    RAISE NOTICE '╠════════════════════════════════════════════════════════╣';
-    RAISE NOTICE '║  Total de registros: %                    ║', LPAD(v_total_registros::TEXT, 26, ' ');
-    RAISE NOTICE '║  Tempo de execução: %                     ║', LPAD(v_duracao::TEXT, 27, ' ');
-    RAISE NOTICE '║  Taxa: % reg/seg                          ║', LPAD(ROUND(v_total_registros / EXTRACT(EPOCH FROM v_duracao), 2)::TEXT, 38, ' ');
-    RAISE NOTICE '╠════════════════════════════════════════════════════════╣';
-    RAISE NOTICE '║  DISTRIBUIÇÃO:                                         ║';
-    RAISE NOTICE '║    • tb_clientes: 5.000.000                            ║';
-    RAISE NOTICE '║    • tb_funcionarios: 2.000.000                        ║';
-    RAISE NOTICE '║    • tb_destinos: 1.000.000                            ║';
-    RAISE NOTICE '║    • tb_hoteis: 3.000.000                              ║';
-    RAISE NOTICE '║    • tb_transportes: 1.000.000                         ║';
-    RAISE NOTICE '║    • tb_pacotes_turisticos: 4.000.000                  ║';
-    RAISE NOTICE '║    • tb_reservas: 10.000.000 ⭐                        ║';
-    RAISE NOTICE '║    • tb_pagamentos: 15.000.000 ⭐⭐                    ║';
-    RAISE NOTICE '║    • tb_avaliacoes: 5.000.000                          ║';
-    RAISE NOTICE '║    • tb_auditoria: 2.000.000                           ║';
-    RAISE NOTICE '╚════════════════════════════════════════════════════════╝';
 
     RETURN '✓ SUCESSO! ' || v_total_registros || ' registros em ' || v_duracao;
 
 EXCEPTION
     WHEN OTHERS THEN
         SET session_replication_role = DEFAULT;
-        RAISE NOTICE '❌ ERRO: %', SQLERRM;
         RETURN 'ERRO: ' || SQLERRM;
 END;
 $$ LANGUAGE plpgsql;

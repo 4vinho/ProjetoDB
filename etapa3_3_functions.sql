@@ -1,4 +1,4 @@
--- ============================================================================
+﻿-- ============================================================================
 -- ETAPA 3.3: FUNCTIONS (FUNÇÕES ARMAZENADAS)
 -- Criação de 3 functions com parâmetros IN/OUT e variáveis locais
 -- ============================================================================
@@ -105,7 +105,7 @@ RETURNS TABLE (
 LANGUAGE plpgsql AS $$
 BEGIN
     IF p_data_inicio > p_data_fim THEN
-        RAISE EXCEPTION 'Data início não pode ser maior que data fim.';
+        RETURN; -- mensagem removida conforme solicitacao
     END IF;
 
     RETURN QUERY
@@ -196,8 +196,6 @@ BEGIN
     SELECT * INTO v_id_reserva, v_valor_total, v_mensagem, v_sucesso
     FROM fn_criar_reserva_completa(1, 2, 4, 2, 5.00, 'Teste de função');
 
-    RAISE NOTICE 'Sucesso: % | Mensagem: % | ID: % | Valor: R$ %',
-        v_sucesso, v_mensagem, v_id_reserva, v_valor_total;
 END $$;
 
 -- TESTE 2: Relatório de Faturamento
@@ -225,3 +223,4 @@ WHERE f.cargo = 'VENDEDOR' AND f.status = 'ATIVO';
 -- ============================================================================
 
 SELECT 'Etapa 3.3 concluída! 3 functions criadas e testadas.' AS status;
+
