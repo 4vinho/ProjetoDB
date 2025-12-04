@@ -24,7 +24,6 @@ DECLARE
     v_fim TIMESTAMP;
     v_duracao INTERVAL;
     v_total_registros BIGINT := 0;
-    i INTEGER;
     v_batch_size INTEGER := 100000;
     v_id_cliente INTEGER;
     v_id_funcionario INTEGER;
@@ -57,17 +56,17 @@ BEGIN
     FOR batch IN 0..49 LOOP
         INSERT INTO tb_clientes (nome_completo, cpf, data_nascimento, email, telefone, endereco, cidade, estado, cep)
         SELECT
-            'Cliente ' || (batch * v_batch_size + i) || ' ' ||
+            'Cliente ' || (batch * v_batch_size + seq_idx) || ' ' ||
             (ARRAY['Silva', 'Santos', 'Oliveira', 'Souza', 'Lima', 'Pereira', 'Costa', 'Rodrigues', 'Almeida', 'Nascimento', 'Ferreira', 'Martins', 'Araújo', 'Cardoso', 'Ribeiro'])[floor(random() * 15 + 1)],
-            LPAD((10000000000 + (batch * v_batch_size + i))::TEXT, 11, '0'),
+            LPAD((10000000000 + (batch * v_batch_size + seq_idx))::TEXT, 11, '0'),
             DATE '1950-01-01' + (random() * 25000)::INTEGER,
-            'cliente' || (batch * v_batch_size + i) || '@email.com.br',
-            (ARRAY['11', '21', '31', '41', '51', '61', '71', '81', '85', '91'])[floor(random() * 10 + 1)] || LPAD((900000000 + i)::TEXT, 9, '0'),
-            (ARRAY['Rua das Flores', 'Avenida Brasil', 'Rua Principal', 'Alameda Santos', 'Travessa do Comercio'])[floor(random() * 5 + 1)] || ', ' || i,
+            'cliente' || (batch * v_batch_size + seq_idx) || '@email.com.br',
+            (ARRAY['11', '21', '31', '41', '51', '61', '71', '81', '85', '91'])[floor(random() * 10 + 1)] || LPAD((900000000 + seq_idx)::TEXT, 9, '0'),
+            (ARRAY['Rua das Flores', 'Avenida Brasil', 'Rua Principal', 'Alameda Santos', 'Travessa do Comercio'])[floor(random() * 5 + 1)] || ', ' || seq_idx,
             (ARRAY['Sao Paulo', 'Rio de Janeiro', 'Brasilia', 'Belo Horizonte', 'Salvador', 'Fortaleza', 'Recife', 'Curitiba', 'Porto Alegre', 'Manaus', 'Belem', 'Goiania', 'Campinas', 'Guarulhos', 'Sao Luis'])[floor(random() * 15 + 1)],
             (ARRAY['SP', 'RJ', 'DF', 'MG', 'BA', 'CE', 'PE', 'PR', 'RS', 'AM', 'PA', 'GO', 'MA', 'ES', 'SC'])[floor(random() * 15 + 1)],
             LPAD((10000000 + (random() * 89999999)::INTEGER)::TEXT, 8, '0')
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  > Progresso: % / 5.000.000 (%%) concluido', (batch + 1) * v_batch_size, ((batch + 1) * 2)::INTEGER;
     END LOOP;
@@ -86,16 +85,16 @@ BEGIN
     FOR batch IN 0..19 LOOP
         INSERT INTO tb_funcionarios (nome_completo, cpf, email_corporativo, telefone, cargo, salario, data_admissao, status)
         SELECT
-            'Funcionário ' || (batch * v_batch_size + i) || ' ' ||
+            'Funcionário ' || (batch * v_batch_size + seq_idx) || ' ' ||
             (ARRAY['Silva', 'Santos', 'Oliveira', 'Costa', 'Lima', 'Pereira', 'Souza', 'Almeida'])[floor(random() * 8 + 1)],
-            LPAD((50000000000 + (batch * v_batch_size + i))::TEXT, 11, '0'),
-            'func' || (batch * v_batch_size + i) || '@agenciaturismo.com.br',
-            '61' || LPAD((991000000 + i)::TEXT, 9, '0'),
+            LPAD((50000000000 + (batch * v_batch_size + seq_idx))::TEXT, 11, '0'),
+            'func' || (batch * v_batch_size + seq_idx) || '@agenciaturismo.com.br',
+            '61' || LPAD((991000000 + seq_idx)::TEXT, 9, '0'),
             (ARRAY['VENDEDOR', 'VENDEDOR', 'VENDEDOR', 'ATENDENTE', 'ATENDENTE', 'SUPERVISOR', 'GERENTE', 'DIRETOR'])[floor(random() * 8 + 1)],
             2500.00 + (random() * 17500)::NUMERIC(10,2),
             DATE '2010-01-01' + (random() * 5000)::INTEGER,
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'FERIAS', 'AFASTADO'])[floor(random() * 7 + 1)]
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  > Progresso: % / 2.000.000 (%%) concluido', (batch + 1) * v_batch_size, ((batch + 1) * 5)::INTEGER;
     END LOOP;
@@ -114,18 +113,18 @@ BEGIN
     FOR batch IN 0..9 LOOP
         INSERT INTO tb_destinos (nome_destino, pais, estado, cidade, descricao, categoria, clima, idioma_principal, moeda_local, status)
         SELECT
-            'Destino ' || (batch * v_batch_size + i) || ' - ' ||
+            'Destino ' || (batch * v_batch_size + seq_idx) || ' - ' ||
             (ARRAY['Paraíso', 'Encanto', 'Maravilha', 'Sonho', 'Fantasia', 'Aventura', 'Descoberta', 'Tesouro'])[floor(random() * 8 + 1)],
             (ARRAY['Brasil', 'Brasil', 'Argentina', 'Chile', 'Peru', 'Colômbia', 'México', 'EUA', 'Canadá', 'França', 'Itália', 'Espanha', 'Portugal', 'Grécia', 'Tailândia', 'Japão', 'Austrália', 'Nova Zelândia'])[floor(random() * 18 + 1)],
             CASE WHEN random() > 0.5 THEN (ARRAY['SP', 'RJ', 'BA', 'CE', 'PE', 'SC', 'RS', 'MG', 'PR', 'GO'])[floor(random() * 10 + 1)] ELSE NULL END,
-            'Cidade Turística ' || i,
+            'Cidade Turística ' || seq_idx,
             'Destino turístico incrível com paisagens deslumbrantes e cultura rica. Perfeito para todas as idades.',
             (ARRAY['PRAIA', 'PRAIA', 'MONTANHA', 'URBANO', 'AVENTURA', 'CULTURAL', 'ECOLOGICO', 'RELIGIOSO'])[floor(random() * 8 + 1)],
             (ARRAY['Tropical', 'Temperado', 'Subtropical', 'Equatorial', 'Árido', 'Mediterrâneo', 'Continental'])[floor(random() * 7 + 1)],
             (ARRAY['Português', 'Espanhol', 'Inglês', 'Francês', 'Italiano', 'Alemão', 'Mandarim', 'Japonês'])[floor(random() * 8 + 1)],
             (ARRAY['Real (BRL)', 'Dólar (USD)', 'Euro (EUR)', 'Peso (ARS)', 'Peso (CLP)', 'Sol (PEN)', 'Libra (GBP)', 'Iene (JPY)'])[floor(random() * 8 + 1)],
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'INATIVO'])[floor(random() * 5 + 1)]
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  ► Progresso: % / 1.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10)::INTEGER;
     END LOOP;
@@ -146,16 +145,16 @@ BEGIN
         SELECT
             floor(random() * 1000000 + 1)::INTEGER,
             (ARRAY['Hotel', 'Resort', 'Pousada', 'Inn', 'Hostel', 'Lodge'])[floor(random() * 6 + 1)] || ' ' ||
-            (ARRAY['Plaza', 'Royal', 'Grand', 'Paradise', 'Golden', 'Imperial', 'Majestic', 'Sunset', 'Ocean', 'Mountain'])[floor(random() * 10 + 1)] || ' ' || i,
-            'Rua Principal, ' || i || ', Centro',
+            (ARRAY['Plaza', 'Royal', 'Grand', 'Paradise', 'Golden', 'Imperial', 'Majestic', 'Sunset', 'Ocean', 'Mountain'])[floor(random() * 10 + 1)] || ' ' || seq_idx,
+            'Rua Principal, ' || seq_idx || ', Centro',
             floor(random() * 5 + 1)::INTEGER,
             'Hotel confortável e bem localizado com excelente infraestrutura para turistas.',
             (ARRAY['Wi-Fi, Piscina, Academia', 'Wi-Fi, Café da manhã, Estacionamento', 'Wi-Fi, Spa, Sauna, Academia', 'Wi-Fi, Piscina, Bar, Restaurante', 'Wi-Fi, Ar condicionado, TV a cabo'])[floor(random() * 5 + 1)],
             100.00 + (random() * 4900)::NUMERIC(10,2),
-            (ARRAY['11', '21', '31', '41', '51', '61', '71', '81'])[floor(random() * 8 + 1)] || LPAD((30000000 + i)::TEXT, 8, '0'),
-            'contato' || (batch * v_batch_size + i) || '@hotel.com.br',
+            (ARRAY['11', '21', '31', '41', '51', '61', '71', '81'])[floor(random() * 8 + 1)] || LPAD((30000000 + seq_idx)::TEXT, 8, '0'),
+            'contato' || (batch * v_batch_size + seq_idx) || '@hotel.com.br',
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'INATIVO'])[floor(random() * 5 + 1)]
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  ► Progresso: % / 3.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10 / 3)::INTEGER;
     END LOOP;
@@ -176,12 +175,12 @@ BEGIN
         SELECT
             (ARRAY['AEREO', 'AEREO', 'AEREO', 'ONIBUS', 'ONIBUS', 'VAN', 'NAVIO', 'TREM'])[floor(random() * 8 + 1)],
             (ARRAY['LATAM', 'GOL', 'Azul', 'TAP', 'Emirates', 'Air France', 'United', 'Viação Cometa', 'Viação Itapemirim', 'MSC Cruzeiros', 'Costa Cruzeiros'])[floor(random() * 11 + 1)],
-            'Modelo ' || (batch * v_batch_size + i) || ' ' || (ARRAY['Executivo', 'Standard', 'Premium', 'Luxury'])[floor(random() * 4 + 1)],
+            'Modelo ' || (batch * v_batch_size + seq_idx) || ' ' || (ARRAY['Executivo', 'Standard', 'Premium', 'Luxury'])[floor(random() * 4 + 1)],
             floor(random() * 500 + 10)::INTEGER,
             (ARRAY['ECONOMICA', 'ECONOMICA', 'EXECUTIVA', 'PRIMEIRA_CLASSE', 'LEITO', 'SEMI_LEITO'])[floor(random() * 6 + 1)],
             80.00 + (random() * 9920)::NUMERIC(10,2),
             (ARRAY['ATIVO', 'ATIVO', 'ATIVO', 'ATIVO', 'MANUTENCAO'])[floor(random() * 5 + 1)]
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  ► Progresso: % / 1.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10)::INTEGER;
     END LOOP;
@@ -200,7 +199,7 @@ BEGIN
     FOR batch IN 0..39 LOOP
         INSERT INTO tb_pacotes_turisticos (nome_pacote, id_destino, id_hotel, id_transporte, descricao_completa, duracao_dias, data_inicio, data_fim, preco_total, vagas_disponiveis, regime_alimentar, incluso, nao_incluso, status)
         SELECT
-            'Pacote Especial ' || (batch * v_batch_size + i) || ' - ' ||
+            'Pacote Especial ' || (batch * v_batch_size + seq_idx) || ' - ' ||
             (ARRAY['Férias dos Sonhos', 'Aventura Radical', 'Relax Total', 'Família Feliz', 'Lua de Mel', 'Executivo'])[floor(random() * 6 + 1)],
             floor(random() * 1000000 + 1)::INTEGER,
             floor(random() * 3000000 + 1)::INTEGER,
@@ -215,7 +214,7 @@ BEGIN
             'Transporte, hospedagem, café da manhã, seguro viagem',
             'Passeios opcionais, refeições extras, bebidas',
             (ARRAY['DISPONIVEL', 'DISPONIVEL', 'DISPONIVEL', 'DISPONIVEL', 'ESGOTADO', 'CANCELADO'])[floor(random() * 6 + 1)]
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  ► Progresso: % / 4.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 10 / 4)::INTEGER;
     END LOOP;
@@ -245,7 +244,7 @@ BEGIN
             CASE WHEN random() > 0.8 THEN 'Observação especial da reserva' ELSE NULL END,
             (ARRAY['CONFIRMADA', 'CONFIRMADA', 'CONFIRMADA', 'CONFIRMADA', 'PENDENTE', 'CANCELADA', 'FINALIZADA'])[floor(random() * 7 + 1)],
             CURRENT_TIMESTAMP - (random() * 730 ||' days')::INTERVAL
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  ► Progresso: % / 10.000.000 (%%) concluído', (batch + 1) * v_batch_size, (batch + 1)::INTEGER;
     END LOOP;
@@ -272,9 +271,9 @@ BEGIN
             100.00 + (random() * 9900)::NUMERIC(10,2),
             CURRENT_DATE + (random() * 365)::INTEGER,
             (ARRAY['PENDENTE', 'PAGO', 'PAGO', 'PAGO', 'PAGO', 'CANCELADO', 'ESTORNADO'])[floor(random() * 7 + 1)],
-            'TXN' || LPAD((batch * v_batch_size + i)::TEXT, 20, '0'),
+            'TXN' || LPAD((batch * v_batch_size + seq_idx)::TEXT, 20, '0'),
             CURRENT_TIMESTAMP - (random() * 365 ||' days')::INTERVAL
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         IF batch % 10 = 9 THEN
             RAISE NOTICE '  ► Progresso: % / 15.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 100 / 150)::INTEGER;
@@ -300,7 +299,7 @@ BEGIN
             floor(random() * 5 + 1)::INTEGER,
             (ARRAY['Excelente experiência!', 'Muito bom, recomendo!', 'Bom custo-benefício', 'Atendeu as expectativas', 'Poderia melhorar', 'Maravilhoso!', 'Perfeito!', 'Inesquecível!', NULL, NULL])[floor(random() * 10 + 1)],
             CURRENT_TIMESTAMP - (random() * 365 ||' days')::INTERVAL
-        FROM generate_series(1, v_batch_size) AS i
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx)
         ON CONFLICT (id_cliente, id_pacote) DO NOTHING;
 
         RAISE NOTICE '  ► Progresso: % / 5.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 2)::INTEGER;
@@ -323,12 +322,12 @@ BEGIN
             (ARRAY['tb_reservas', 'tb_pagamentos', 'tb_clientes', 'tb_pacotes_turisticos'])[floor(random() * 4 + 1)],
             (ARRAY['INSERT', 'UPDATE', 'DELETE'])[floor(random() * 3 + 1)],
             'user_' || floor(random() * 100 + 1),
-            CASE WHEN random() > 0.5 THEN ('{"id": ' || i || ', "valor": ' || (random() * 10000)::INTEGER || '}')::JSONB ELSE NULL END,
-            ('{"id": ' || i || ', "novo_valor": ' || (random() * 10000)::INTEGER || '}')::JSONB,
+            CASE WHEN random() > 0.5 THEN ('{"id": ' || seq_idx || ', "valor": ' || (random() * 10000)::INTEGER || '}')::JSONB ELSE NULL END,
+            ('{"id": ' || seq_idx || ', "novo_valor": ' || (random() * 10000)::INTEGER || '}')::JSONB,
             floor(random() * 10000000 + 1)::INTEGER,
             'Operação registrada automaticamente pelo sistema de auditoria',
             CURRENT_TIMESTAMP - (random() * 365 ||' days')::INTERVAL
-        FROM generate_series(1, v_batch_size) AS i;
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
 
         RAISE NOTICE '  ► Progresso: % / 2.000.000 (%%) concluído', (batch + 1) * v_batch_size, ((batch + 1) * 5)::INTEGER;
     END LOOP;
