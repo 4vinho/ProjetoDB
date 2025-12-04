@@ -167,16 +167,21 @@ BEGIN
             floor(random() * 3000000 + 1)::INTEGER,
             floor(random() * 1000000 + 1)::INTEGER,
             'Pacote completo com hospedagem, transporte e passeios inclusos. Experiência inesquecível!',
-            floor(random() * 20 + 1)::INTEGER,
-            CURRENT_DATE + (random() * 730)::INTEGER,
-            CURRENT_DATE + (random() * 730 + 3)::INTEGER,
+            periodo.duracao_dias,
+            periodo.data_inicio,
+            periodo.data_inicio + periodo.duracao_dias,
             1000.00 + (random() * 49000)::NUMERIC(10,2),
             floor(random() * 100 + 1)::INTEGER,
             (ARRAY['CAFE_MANHA', 'MEIA_PENSAO', 'PENSAO_COMPLETA', 'ALL_INCLUSIVE', 'SEM_ALIMENTACAO'])[floor(random() * 5 + 1)],
             'Transporte, hospedagem, café da manhã, seguro viagem',
             'Passeios opcionais, refeições extras, bebidas',
             (ARRAY['DISPONIVEL', 'DISPONIVEL', 'DISPONIVEL', 'DISPONIVEL', 'ESGOTADO', 'CANCELADO'])[floor(random() * 6 + 1)]
-        FROM generate_series(1, v_batch_size) AS seq(seq_idx);
+        FROM generate_series(1, v_batch_size) AS seq(seq_idx)
+        CROSS JOIN LATERAL (
+            SELECT
+                (CURRENT_DATE + (random() * 730)::INTEGER) AS data_inicio,
+                (floor(random() * 20 + 3)::INTEGER) AS duracao_dias
+        ) AS periodo;
 
     END LOOP;
 
