@@ -5,7 +5,11 @@
 -- Uso: SELECT popular_dados_massivos(); -- Popula com milhoes em TODAS
 -- ============================================================================
 
+-- Ensure UTF-8 encoding before running the heavy inserts
+\encoding UTF8
+
 \c agencia_turismo;
+SET client_encoding TO 'UTF8';
 
 -- ============================================================================
 -- FUNCAO PRINCIPAL: popular_dados_massivos
