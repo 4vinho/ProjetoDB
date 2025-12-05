@@ -64,7 +64,7 @@ BEGIN
     WHERE p.id_pacote = NEW.id_pacote;
 
     IF NOT FOUND THEN
-        NULL; -- mensagem removida conforme solicitacao
+        RAISE EXCEPTION 'Pacote ID % nao encontrado.', NEW.id_pacote;
     END IF;
 
     -- Calcular vagas já vendidas (excluindo a reserva atual se for UPDATE)
@@ -79,7 +79,8 @@ BEGIN
 
     -- Validar disponibilidade
     IF NEW.numero_passageiros > v_vagas_restantes THEN
-        NULL; -- mensagem removida conforme solicitacao
+        RAISE EXCEPTION 'ERRO: Pacote "%" possui apenas % vaga(s). Tentativa: % passageiro(s).',
+            v_nome_pacote, v_vagas_restantes, NEW.numero_passageiros;
     END IF;
 
     RETURN NEW;
@@ -153,7 +154,8 @@ BEGIN
 
     -- Validar com tolerância de R$ 0,01 (arredondamento)
     IF v_diferenca > 0.01 THEN
-        NULL; -- mensagem removida conforme solicitacao
+        RAISE EXCEPTION 'ERRO FINANCEIRO: valor total incorreto. Esperado: %, informado: %.',
+            ROUND(v_valor_calculado, 2), NEW.valor_total;
     END IF;
 
     -- Corrigir possíveis diferenças de arredondamento

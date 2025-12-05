@@ -2,7 +2,9 @@
 -- SUPER SQL: POPULACAO MASSIVA DE DADOS
 -- Funcao para popular TODAS as tabelas com MILHOES de dados aleatorios
 -- GARANTIA: TODAS as tabelas terao MILHOES de registros!
--- Uso: SELECT popular_dados_massivos(); -- Popula com milhoes em TODAS
+-- Uso: SELECT popular_dados_massivos(); -- p_fast_mode TRUE (padrao rapido)
+--      SELECT popular_dados_massivos(FALSE); -- modo completo (milhoes)
+-- Parametro p_fast_mode ajusta v_batch_size (2.000 vs 100.000 registros por lote)
 -- ============================================================================
 
 -- Ensure UTF-8 encoding before running the heavy inserts
@@ -17,14 +19,14 @@ SET client_encoding TO 'UTF8';
 -- SEM parametros = popula milhoes em todas as tabelas automaticamente
 -- ============================================================================
 
-CREATE OR REPLACE FUNCTION popular_dados_massivos()
+CREATE OR REPLACE FUNCTION popular_dados_massivos(p_fast_mode BOOLEAN DEFAULT TRUE)
 RETURNS TEXT AS $$
 DECLARE
     v_inicio TIMESTAMP;
     v_fim TIMESTAMP;
     v_duracao INTERVAL;
     v_total_registros BIGINT := 0;
-    v_batch_size INTEGER := 100000;
+    v_batch_size INTEGER := CASE WHEN p_fast_mode THEN 2000 ELSE 100000 END;
     v_id_cliente INTEGER;
     v_id_funcionario INTEGER;
     v_id_destino INTEGER;
@@ -42,7 +44,7 @@ BEGIN
     SET session_replication_role = replica;
 
     -- ========================================================================
-    -- 1. TB_CLIENTES: 5 MILHOES DE REGISTROS
+    -- 1. TB_CLIENTES: 50 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..49 LOOP
@@ -62,10 +64,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 5000000;
+    v_total_registros := v_total_registros + (50 * v_batch_size);
 
     -- ========================================================================
-    -- 2. TB_FUNCIONARIOS: 2 MILHOES DE REGISTROS
+    -- 2. TB_FUNCIONARIOS: 20 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..19 LOOP
@@ -84,10 +86,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 2000000;
+    v_total_registros := v_total_registros + (20 * v_batch_size);
 
     -- ========================================================================
-    -- 3. TB_DESTINOS: 1 MILHAO DE REGISTROS
+    -- 3. TB_DESTINOS: 10 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..9 LOOP
@@ -108,10 +110,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 1000000;
+    v_total_registros := v_total_registros + (10 * v_batch_size);
 
     -- ========================================================================
-    -- 4. TB_HOTEIS: 3 MILHÕES DE REGISTROS
+    -- 4. TB_HOTEIS: 30 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..29 LOOP
@@ -132,10 +134,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 3000000;
+    v_total_registros := v_total_registros + (30 * v_batch_size);
 
     -- ========================================================================
-    -- 5. TB_TRANSPORTES: 1 MILHÃO DE REGISTROS
+    -- 5. TB_TRANSPORTES: 10 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..9 LOOP
@@ -152,10 +154,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 1000000;
+    v_total_registros := v_total_registros + (10 * v_batch_size);
 
     -- ========================================================================
-    -- 6. TB_PACOTES_TURISTICOS: 4 MILHÕES DE REGISTROS
+    -- 6. TB_PACOTES_TURISTICOS: 40 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..39 LOOP
@@ -185,10 +187,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 4000000;
+    v_total_registros := v_total_registros + (40 * v_batch_size);
 
     -- ========================================================================
-    -- 7. TB_RESERVAS: 10 MILHÕES DE REGISTROS (MAIOR TABELA)
+    -- 7. TB_RESERVAS: 100 lotes (v_batch_size cada) -- maior tabela
     -- ========================================================================
 
     FOR batch IN 0..99 LOOP
@@ -208,10 +210,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 10000000;
+    v_total_registros := v_total_registros + (100 * v_batch_size);
 
     -- ========================================================================
-    -- 8. TB_PAGAMENTOS: 15 MILHÕES DE REGISTROS (MÚLTIPLAS PARCELAS)
+    -- 8. TB_PAGAMENTOS: 150 lotes (v_batch_size cada, com parcelas)
     -- ========================================================================
 
     FOR batch IN 0..149 LOOP
@@ -232,10 +234,10 @@ BEGIN
         END IF;
     END LOOP;
 
-    v_total_registros := v_total_registros + 15000000;
+    v_total_registros := v_total_registros + (150 * v_batch_size);
 
     -- ========================================================================
-    -- 9. TB_AVALIACOES: 5 MILHÕES DE REGISTROS
+    -- 9. TB_AVALIACOES: 50 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..49 LOOP
@@ -251,10 +253,10 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 5000000;
+    v_total_registros := v_total_registros + (50 * v_batch_size);
 
     -- ========================================================================
-    -- 10. TB_AUDITORIA: 2 MILHÕES DE REGISTROS
+    -- 10. TB_AUDITORIA: 20 lotes (v_batch_size registros cada)
     -- ========================================================================
 
     FOR batch IN 0..19 LOOP
@@ -272,7 +274,7 @@ BEGIN
 
     END LOOP;
 
-    v_total_registros := v_total_registros + 2000000;
+    v_total_registros := v_total_registros + (20 * v_batch_size);
 
     -- Reabilitar triggers
     SET session_replication_role = DEFAULT;
@@ -344,8 +346,9 @@ $$ LANGUAGE plpgsql;
 -- USO
 -- ============================================================================
 
--- EXECUTAR POPULAÇÃO MASSIVA (48 MILHÕES DE REGISTROS!)
--- SELECT popular_dados_massivos();
+-- EXECUTAR POPULACAO MASSIVA
+-- SELECT popular_dados_massivos();        -- modo rapido (p_fast_mode = TRUE)
+-- SELECT popular_dados_massivos(FALSE);   -- modo completo (milhoes)
 
 -- LIMPAR TUDO
 -- SELECT limpar_todas_tabelas();
@@ -355,7 +358,7 @@ $$ LANGUAGE plpgsql;
 
 -- ============================================================================
 -- RESUMO FINAL
--- Total: 48 MILHÕES DE REGISTROS distribuídos em TODAS as 10 tabelas!
+-- Total inserido = soma(lotes * v_batch_size). Verifique o retorno da funcao.
 -- ============================================================================
 
 SELECT '🚀 Super SQL criado! Execute: SELECT popular_dados_massivos();' AS status;

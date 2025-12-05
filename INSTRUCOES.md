@@ -116,6 +116,9 @@
   psql -U postgres -h localhost -d agencia_turismo -f popular_dados_massivos.sql
   ```
 - **Via Query Tool/GUI**: cole o script inteiro, confirme que `\encoding UTF8` esta definido e execute.
+- **Execucao da funcao**:
+  - `SELECT popular_dados_massivos();` (modo rapido, padrao p_fast_mode = TRUE).
+  - `SELECT popular_dados_massivos(FALSE);` (modo completo, gera os milhoes originais e demanda bem mais tempo).
 - **Validacao**:
   ```sql
   SELECT * FROM verificar_tamanho_tabelas();
